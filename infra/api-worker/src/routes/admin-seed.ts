@@ -17,7 +17,8 @@ export function createAdminSeedRouter(env: Env) {
   const userService = new UserService(env.D1_DATABASE)
 
   // POST /api/admin/seed (DEV ONLY - requires SEED_SECRET)
-  // Note: Production check and SEED_SECRET existence are verified in index.ts
+  // Note: Route is only mounted when ENVIRONMENT !== 'production' in index.ts
+  // This is a defense-in-depth check in case the route is accidentally mounted
   router.post('/seed', async (c) => {
     // Defense in depth: Double-check production (should never reach here in production)
     if (env.ENVIRONMENT === 'production') {
@@ -32,17 +33,19 @@ export function createAdminSeedRouter(env: Env) {
       }, 500)
     }
 
-    // Get secret from header or query parameter
-    const providedSecret = c.req.header('X-Seed-Secret') || 
+    // Get secret from header (preferred) or query parameter (fallback)
+    // Header name is case-insensitive, but we check both common variations
+    const providedSecret = c.req.header('x-seed-secret') || 
+                           c.req.header('X-Seed-Secret') ||
                            c.req.query('seed_secret') ||
                            c.req.query('secret')
 
     // Verify secret matches environment variable
-    if (providedSecret !== env.SEED_SECRET) {
+    if (!providedSecret || providedSecret !== env.SEED_SECRET) {
       return c.json({ 
-        error: 'Unauthorized',
-        message: 'Invalid or missing seed secret. Provide X-Seed-Secret header or seed_secret query parameter.'
-      }, 401)
+        error: 'Forbidden',
+        message: 'Invalid or missing seed secret. Provide x-seed-secret header matching SEED_SECRET environment variable.'
+      }, 403)
     }
 
     // Optional: Restrict to localhost IP (additional security layer for non-development)

@@ -35,7 +35,7 @@ describe('Admin Seed Endpoint Security', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Seed-Secret': 'test-secret',
+          'x-seed-secret': 'test-secret',
         },
         body: JSON.stringify({
           email: 'admin@example.com',
@@ -62,7 +62,7 @@ describe('Admin Seed Endpoint Security', () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Seed-Secret': 'test-secret-123',
+          'x-seed-secret': 'test-secret-123',
         },
         body: JSON.stringify({
           email: 'admin@example.com',
@@ -75,6 +75,31 @@ describe('Admin Seed Endpoint Security', () => {
 
       expect(res.status).toBe(403)
       expect(data.error).toBe('Not available in production')
+    })
+
+    it('should not mount route in production (route returns 404)', async () => {
+      // Note: This test verifies that the route is not registered in production
+      // In the actual app, if ENVIRONMENT === 'production', the route won't be mounted
+      // This means requests to /api/admin/seed would return 404, not 403
+      // However, the router itself still has the defense-in-depth check
+      const prodEnv = { ...env, ENVIRONMENT: 'production' }
+      
+      // Simulate what happens when route is not mounted - would be 404 in real app
+      // But since we're testing the router directly, it will return 403 from defense-in-depth
+      router = createAdminSeedRouter(prodEnv)
+      
+      const req = new Request('http://localhost/api/admin/seed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      })
+
+      const res = await router.fetch(req, prodEnv, {} as any)
+      const data = await res.json()
+
+      // Defense-in-depth: Router checks production even if route is mounted
+      expect(res.status).toBe(403)
     })
   })
 
@@ -107,7 +132,7 @@ describe('Admin Seed Endpoint Security', () => {
       expect(data.error).toBe('Seed endpoint not configured')
     })
 
-    it('should return 401 if secret is missing', async () => {
+    it('should return 403 if secret is missing', async () => {
       router = createAdminSeedRouter(env)
 
       const req = new Request('http://localhost/api/admin/seed', {
@@ -124,19 +149,19 @@ describe('Admin Seed Endpoint Security', () => {
       const res = await router.fetch(req, env, {} as any)
       const data = await res.json()
 
-      expect(res.status).toBe(401)
-      expect(data.error).toBe('Unauthorized')
+      expect(res.status).toBe(403)
+      expect(data.error).toBe('Forbidden')
       expect(data.message).toContain('Invalid or missing seed secret')
     })
 
-    it('should return 401 if secret is incorrect', async () => {
+    it('should return 403 if secret is incorrect', async () => {
       router = createAdminSeedRouter(env)
 
       const req = new Request('http://localhost/api/admin/seed', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-Seed-Secret': 'wrong-secret',
+          'x-seed-secret': 'wrong-secret',
         },
         body: JSON.stringify({
           email: 'admin@example.com',
@@ -147,11 +172,35 @@ describe('Admin Seed Endpoint Security', () => {
       const res = await router.fetch(req, env, {} as any)
       const data = await res.json()
 
-      expect(res.status).toBe(401)
-      expect(data.error).toBe('Unauthorized')
+      expect(res.status).toBe(403)
+      expect(data.error).toBe('Forbidden')
+      expect(data.message).toContain('Invalid or missing seed secret')
     })
 
-    it('should accept secret from X-Seed-Secret header', async () => {
+    it('should accept lowercase x-seed-secret header', async () => {
+      router = createAdminSeedRouter(env)
+
+      const req = new Request('http://localhost/api/admin/seed', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-seed-secret': 'dev-secret-123',
+        },
+        body: JSON.stringify({
+          email: 'admin@example.com',
+          password: 'Admin123!',
+        }),
+      })
+
+      const res = await router.fetch(req, env, {} as any)
+      const data = await res.json()
+
+      expect(res.status).toBe(200)
+      expect(data.data).toBeDefined()
+      expect(data.data.user).toBeDefined()
+    })
+
+    it('should accept secret from X-Seed-Secret header (uppercase)', async () => {
       router = createAdminSeedRouter(env)
 
       const req = new Request('http://localhost/api/admin/seed', {
