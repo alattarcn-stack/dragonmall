@@ -9,6 +9,7 @@ import { logError, logInfo } from '../utils/logging'
 import { parsePaginationParams, getOffset, createPaginatedResponse } from '../utils/pagination'
 import { makeError, ErrorCodes } from '../utils/errors'
 import { logOrderRefund, logOrderStatusChange } from '../utils/audit-log'
+import { sanitizeUserContent, sanitizeAdminContent } from '../utils/sanitize'
 
 export function createAdminRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -242,7 +243,7 @@ export function createAdminRouter(env: Env) {
       const validatedBody = validationResult.data
       const product = await productService.create({
         name: validatedBody.name,
-        description: validatedBody.description || null,
+        description: validatedBody.description ? sanitizeAdminContent(validatedBody.description) : null,
         images: validatedBody.images || null,
         price: validatedBody.price,
         stock: validatedBody.stock ?? null,
@@ -274,12 +275,14 @@ export function createAdminRouter(env: Env) {
       const validatedBody = validationResult.data
       const product = await productService.update(id, {
         name: validatedBody.name,
-        description: validatedBody.description,
+        description: validatedBody.description !== undefined 
+          ? (validatedBody.description ? sanitizeAdminContent(validatedBody.description) : null)
+          : undefined,
         images: validatedBody.images,
         price: validatedBody.price,
         stock: validatedBody.stock,
         categoryId: validatedBody.categoryId,
-        isActive: validatedBody.isActive ? 1 : 0,
+        isActive: validatedBody.isActive !== undefined ? (validatedBody.isActive ? 1 : 0) : undefined,
         minQuantity: validatedBody.minQuantity,
         maxQuantity: validatedBody.maxQuantity,
         productType: validatedBody.productType,
@@ -739,8 +742,11 @@ export function createAdminRouter(env: Env) {
         return c.json({ error: 'Support ticket not found' }, 404)
       }
 
+      // Sanitize admin reply (allow safe HTML formatting)
+      const sanitizedReply = sanitizeAdminContent(reply)
+
       // Reply to ticket
-      await supportService.reply(id, reply)
+      await supportService.reply(id, sanitizedReply)
 
       // Get user email to send notification
       const user = await userService.getById(ticket.userId)
@@ -844,7 +850,7 @@ export function createAdminRouter(env: Env) {
       const category = await categoryService.createCategory({
         name: input.name,
         slug: input.slug,
-        description: input.description,
+        description: input.description ? sanitizeAdminContent(input.description) : null,
         sortOrder: input.sortOrder,
         isActive: input.isActive,
       })
@@ -883,7 +889,9 @@ export function createAdminRouter(env: Env) {
       const category = await categoryService.updateCategory(id, {
         name: input.name,
         slug: input.slug,
-        description: input.description,
+        description: input.description !== undefined
+          ? (input.description ? sanitizeAdminContent(input.description) : null)
+          : undefined,
         sortOrder: input.sortOrder,
         isActive: input.isActive,
       })

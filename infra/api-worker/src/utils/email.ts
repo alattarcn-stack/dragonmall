@@ -1,5 +1,6 @@
 import type { Env } from '../types'
 import { logError, logInfo } from './logging'
+import { escapeHtml } from './sanitize'
 
 /**
  * Email Provider Interface
@@ -380,12 +381,12 @@ export async function sendSupportReplyEmail(
             
             <div class="ticket-content">
               <h3>Your Original Message:</h3>
-              <p>${ticket.content.replace(/\n/g, '<br>')}</p>
+              <p>${escapeHtml(ticket.content).replace(/\n/g, '<br>')}</p>
             </div>
 
             <div class="reply-content">
               <h3>Our Reply:</h3>
-              <p>${ticket.reply.replace(/\n/g, '<br>')}</p>
+              <p>${escapeHtml(ticket.reply).replace(/\n/g, '<br>')}</p>
             </div>
 
             <p>
