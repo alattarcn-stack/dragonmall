@@ -43,11 +43,23 @@ export default {
     } catch (error) {
       // Log the error and return a 500 response
       console.error('Environment validation failed:', error)
+      
+      const isProd = env.ENVIRONMENT === 'production'
+      
+      // In production, only send generic error messages
+      const responseBody: {
+        error: string
+        message?: string
+      } = {
+        error: 'CONFIGURATION_ERROR',
+      }
+      
+      if (!isProd && error instanceof Error) {
+        responseBody.message = error.message
+      }
+      
       return new Response(
-        JSON.stringify({
-          error: 'Server configuration error',
-          message: error instanceof Error ? error.message : 'Unknown error',
-        }),
+        JSON.stringify(responseBody),
         {
           status: 500,
           headers: {

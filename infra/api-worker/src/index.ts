@@ -457,11 +457,33 @@ app.onError(async (err, c) => {
     })
   }
   
-  return c.json({ 
-    error: 'Internal server error',
+  const isProd = c.env.ENVIRONMENT === 'production'
+  
+  // In production, only send generic error messages to prevent information leakage
+  // In development, include error details for debugging
+  const responseBody: {
+    error: string
+    requestId?: string
+    message?: string
+    stack?: string
+  } = {
+    error: 'INTERNAL_ERROR',
     requestId: requestId || undefined,
-    message: c.env.ENVIRONMENT === 'development' ? err.message : undefined
-  }, 500)
+  }
+  
+  if (!isProd) {
+    // Include error message in non-production environments
+    if (err.message) {
+      responseBody.message = err.message
+    }
+    
+    // Optionally include trimmed stack trace in development (first 500 chars)
+    if (err.stack) {
+      responseBody.stack = err.stack.split('\n').slice(0, 10).join('\n')
+    }
+  }
+  
+  return c.json(responseBody, 500)
 })
 
 // 404 handler
