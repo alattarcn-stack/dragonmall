@@ -293,7 +293,7 @@ export function createAdminRouter(env: Env) {
 
       // Validate file upload
       const config = getFileUploadConfig(env)
-      const validation = validateFileUpload(file, config)
+      const validation = validateFileUpload(file, config, env)
       
       if (!validation.valid) {
         return c.json({ 
