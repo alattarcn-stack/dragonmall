@@ -31,5 +31,8 @@ export interface Env {
   EMAIL_API_KEY?: string // API key for email provider
   EMAIL_FROM?: string // From email address (e.g., noreply@example.com)
   FRONTEND_BASE_URL?: string // Base URL for frontend (used in email links)
+  
+  // Development seed (local dev only)
+  SEED_SECRET?: string // Secret required to use admin seed endpoint (dev only)
 }
 

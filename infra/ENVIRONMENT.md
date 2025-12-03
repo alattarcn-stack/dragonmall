@@ -120,6 +120,22 @@ These must be set using `wrangler secret put` (they are encrypted and not visibl
 - **Example**: `"https://store.dragonstation.com"`
 - **Where to configure**: Cloudflare Dashboard → Workers → dragon-station-2026-api → Settings → Variables → Secrets or Variables
 
+#### SEED_SECRET
+- **Purpose**: Secret required to use the admin seed endpoint (development only)
+- **Required**: No (only needed for local development seeding)
+- **Format**: String (any secure random string)
+- **Set via**: Add to `infra/.dev.vars` for local dev (NEVER set in production)
+- **Example**: `"dev-secret-key-change-in-production"`
+- **⚠️ SECURITY WARNING**: 
+  - **NEVER** set this in production environments
+  - The seed endpoint is automatically blocked when `ENVIRONMENT=production`
+  - Use a strong, random secret for local development
+  - Provide secret via `X-Seed-Secret` header or `seed_secret` query parameter
+  - Example: `curl -H "X-Seed-Secret: your-secret" ...`
+- **Where to configure**: 
+  - Local dev: `infra/.dev.vars` (add `SEED_SECRET=your-dev-secret`)
+  - **DO NOT** set in production Cloudflare Dashboard
+
 ### Public Variables
 
 These are set in `wrangler.toml` under `[vars]` or in the Cloudflare Dashboard:

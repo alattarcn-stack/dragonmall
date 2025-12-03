@@ -62,15 +62,23 @@ npm run db:migrate
 
 ## Step 6: Seed Admin User (Development Only)
 
+**⚠️ SECURITY WARNING**: This endpoint is only available in development and requires a secret.
+
 ```bash
+# Add SEED_SECRET to infra/.dev.vars (if not already present)
+echo "SEED_SECRET=dev-secret-key-change-in-production" >> infra/.dev.vars
+
 # Start the API worker first (in one terminal)
 npm run dev:worker
 
-# In another terminal, seed admin user
+# In another terminal, seed admin user with secret
 curl -X POST http://localhost:8787/api/admin/seed \
   -H "Content-Type: application/json" \
+  -H "X-Seed-Secret: dev-secret-key-change-in-production" \
   -d '{"email": "admin@example.com", "password": "Admin123!"}'
 ```
+
+**Note**: The seed endpoint is automatically blocked in production environments. Never set `ENVIRONMENT=production` with `SEED_SECRET` configured.
 
 ## Step 7: Start Development Servers
 

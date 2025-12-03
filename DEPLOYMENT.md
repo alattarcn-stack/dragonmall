@@ -167,18 +167,30 @@ Same process as storefront, but with different settings:
 3. **Project name**: `dragon-station-admin`
 4. **Environment variables**: Same as storefront
 
-### Step 7: Seed Initial Admin User
+### Step 7: Create Initial Admin User
 
-After deployment, seed an admin user (development only - remove in production):
+**⚠️ SECURITY**: The `/api/admin/seed` endpoint is **automatically blocked in production** and requires `SEED_SECRET` even in development.
+
+**For Production**: Create admin users manually via database or use a secure migration script. The seed endpoint will return 403 in production.
+
+**For Development/Staging** (if needed):
+1. Set `SEED_SECRET` in environment variables (NEVER in production)
+2. Set `ENVIRONMENT` to something other than `production`
+3. Use the endpoint with the secret:
 
 ```bash
-# Using the deployed worker URL
+# Using the deployed worker URL with secret
 curl -X POST https://your-worker-url.workers.dev/api/admin/seed \
   -H "Content-Type: application/json" \
+  -H "X-Seed-Secret: your-seed-secret-here" \
   -d '{"email": "admin@example.com", "password": "Admin123!"}'
 ```
 
-**⚠️ Important**: Remove or secure the `/api/admin/seed` endpoint in production!
+**⚠️ CRITICAL**: 
+- **NEVER** set `SEED_SECRET` in production environments
+- The endpoint automatically rejects requests when `ENVIRONMENT=production`
+- Use a strong, random secret and keep it secure
+- Consider using database migrations or manual SQL for production admin creation
 
 ## Post-Deployment Checklist
 

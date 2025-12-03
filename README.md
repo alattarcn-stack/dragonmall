@@ -172,12 +172,23 @@ npm run db:migrate:prod
 
 4. **Seed Initial Admin User** (Development Only)
 
+**⚠️ SECURITY**: The seed endpoint requires `SEED_SECRET` environment variable and is blocked in production.
+
 ```bash
+# Add SEED_SECRET to infra/.dev.vars
+echo "SEED_SECRET=your-dev-secret-key-here" >> infra/.dev.vars
+
 # Start the API worker first
 npm run dev:worker
 
-# In another terminal, seed admin user
+# In another terminal, seed admin user with secret
 curl -X POST http://localhost:8787/api/admin/seed \
+  -H "Content-Type: application/json" \
+  -H "X-Seed-Secret: your-dev-secret-key-here" \
+  -d '{"email": "admin@example.com", "password": "Admin123!"}'
+
+# Alternative: Use query parameter
+curl -X POST "http://localhost:8787/api/admin/seed?seed_secret=your-dev-secret-key-here" \
   -H "Content-Type: application/json" \
   -d '{"email": "admin@example.com", "password": "Admin123!"}'
 ```
@@ -206,7 +217,8 @@ npm run dev:admin
 - [ ] Configure `infra/wrangler.toml` with resource IDs
 - [ ] Create `infra/.dev.vars` with required secrets
 - [ ] Run database migrations: `npm run db:migrate`
-- [ ] Seed admin user: `POST /api/admin/seed` (dev only)
+- [ ] Set `SEED_SECRET` in `infra/.dev.vars` (dev only)
+- [ ] Seed admin user: `POST /api/admin/seed` with `X-Seed-Secret` header (dev only, blocked in production)
 - [ ] Start API worker: `npm run dev:worker`
 - [ ] Start storefront: `npm run dev:store`
 - [ ] Start admin panel: `npm run dev:admin`
