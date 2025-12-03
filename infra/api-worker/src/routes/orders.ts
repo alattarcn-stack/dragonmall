@@ -102,7 +102,7 @@ export function createOrdersRouter(env: Env) {
     }
   })
 
-  // Mark order as paid (internal/webhook use)
+  // Mark order as paid (requires authentication: admin or order owner)
   router.post('/:id/pay', async (c) => {
     try {
       const id = parseInt(c.req.param('id'), 10)
@@ -110,7 +110,38 @@ export function createOrdersRouter(env: Env) {
         return c.json({ error: 'Invalid order ID' }, 400)
       }
 
-      const order = await orderService.markPaid(id)
+      // Get user info from context (set by auth middleware)
+      const userId = c.get('userId')
+      const isAdmin = c.get('isAdmin') || false
+      const role = c.get('role')
+
+      // Require authentication (either admin or customer)
+      if (!userId || (!isAdmin && role !== 'customer')) {
+        return c.json({ error: 'Unauthorized' }, 401)
+      }
+
+      // Fetch the order to check authorization and status
+      const order = await orderService.getById(id)
+      if (!order) {
+        return c.json({ error: 'Order not found' }, 404)
+      }
+
+      // Authorization check: admin can mark any order as paid, customer can only mark their own
+      if (!isAdmin && order.userId !== userId) {
+        return c.json({ error: 'Forbidden' }, 403)
+      }
+
+      // Validate order status - only allow marking pending orders as paid
+      // This prevents double-payment or marking already-paid orders
+      if (order.status !== 'pending') {
+        return c.json({ 
+          error: 'Invalid order status',
+          message: `Cannot mark order as paid. Current status: ${order.status}. Only pending orders can be marked as paid.`
+        }, 400)
+      }
+
+      // Mark order as paid
+      const updatedOrder = await orderService.markPaid(id)
 
       // Auto-fulfill if possible
       const orderItems = await orderService.getOrderItems(id)
@@ -130,12 +161,12 @@ export function createOrdersRouter(env: Env) {
           await orderService.updateStatus(id, 'completed')
         } else if (product.productType === 'digital') {
           // Create download link
-          await downloadService.createDownloadLink(id, item.productId, order.userId || undefined)
+          await downloadService.createDownloadLink(id, item.productId, updatedOrder.userId || undefined)
           await orderService.updateStatus(id, 'completed')
         }
       }
 
-      return c.json({ data: order })
+      return c.json({ data: updatedOrder })
     } catch (error) {
       console.error('Error marking order as paid:', error)
       return c.json({ error: 'Failed to mark order as paid' }, 500)

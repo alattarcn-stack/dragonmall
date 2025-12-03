@@ -112,8 +112,9 @@ app.get('/api/orders/:id', async (c) => {
   return router.fetch(c.req.raw, c.env, c.executionCtx)
 })
 
-// Orders API - Mark as paid (internal/webhook)
-app.post('/api/orders/:id/pay', async (c) => {
+// Orders API - Mark as paid (requires authentication: admin or order owner)
+app.use('/api/orders/:id/pay', optionalAuth)
+app.post('/api/orders/:id/pay', csrfProtection, async (c) => {
   const router = createOrdersRouter(c.env)
   return router.fetch(c.req.raw, c.env, c.executionCtx)
 })
