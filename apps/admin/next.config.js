@@ -1,10 +1,19 @@
 // Injected content via Sentry wizard below
 const { withSentryConfig } = require('@sentry/nextjs')
+const path = require('path')
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@dragon/api', '@dragon/core'],
+  webpack: (config, { isServer }) => {
+    // Resolve path aliases
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@': path.resolve(__dirname, './src'),
+    }
+    return config
+  },
 }
 
 module.exports = withSentryConfig(

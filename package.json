@@ -10,7 +10,7 @@
     "dev:store": "next dev --dir apps/store -p 3000",
     "dev:admin": "next dev --dir apps/admin -p 3001",
     "dev:worker": "wrangler dev --config infra/wrangler.toml",
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspace=@dragon/admin --workspace=@dragon/store",
     "type-check": "tsc --build --force",
     "lint": "eslint . --ext .ts,.tsx",
     "test": "vitest run",
