@@ -5,6 +5,7 @@ import { publicAuth, adminAuth, customerAuth, optionalAuth } from './middleware/
 import { securityHeaders } from './middleware/security-headers'
 import { csrfProtection } from './middleware/csrf'
 import { requestIdMiddleware } from './middleware/request-id'
+import { requestSizeLimit } from './middleware/request-size-limit'
 import { logError } from './utils/logging'
 import { createProductsRouter } from './routes/products'
 import { createCategoriesRouter } from './routes/categories'
@@ -25,6 +26,14 @@ app.use('/*', requestIdMiddleware)
 
 // Security headers middleware (applied globally)
 app.use('/*', securityHeaders)
+
+// Request size limit middleware (check before parsing body)
+// Limits JSON bodies to 5MB, form data to 10MB
+// File upload endpoints are exempt (they have their own validation)
+app.use('/*', requestSizeLimit({
+  maxJsonBodySize: 5 * 1024 * 1024, // 5MB
+  maxFormDataSize: 10 * 1024 * 1024, // 10MB
+}))
 
 // CORS middleware - Environment-driven configuration
 // Build allowed origins from environment variables + localhost for development
