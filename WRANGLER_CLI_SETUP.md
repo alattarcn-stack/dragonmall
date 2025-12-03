@@ -2,12 +2,15 @@
 
 This guide explains how to use Wrangler CLI to develop, preview, and deploy the Dragon Station 2026 API Worker.
 
-## Current Project Structure
+## ⚠️ Important: Project Already Configured
 
-The project is already set up with Wrangler configuration:
-- **Wrangler config**: `infra/wrangler.toml`
-- **Worker entry point**: `infra/api-worker/src/worker.ts`
-- **Main entry point**: `infra/api-worker/src/index.ts`
+**You don't need to run `create-cloudflare`** - this project is already fully set up with:
+- ✅ `infra/wrangler.toml` - Wrangler configuration
+- ✅ `infra/api-worker/src/worker.ts` - Worker entry point
+- ✅ All bindings configured (D1, R2, KV, Queue)
+- ✅ Package.json scripts ready
+
+The `create-cloudflare` command is for **new projects only**. Since this project already exists, you can skip that step and use Wrangler directly.
 
 ## Prerequisites
 
@@ -29,7 +32,7 @@ The project is already set up with Wrangler configuration:
 ### Start Local Development Server
 
 ```bash
-# From project root
+# From project root (recommended)
 npm run dev:worker
 
 # Or directly with wrangler
@@ -202,6 +205,17 @@ wrangler login
 
 Make sure `wrangler.toml` exists in `infra/` directory and the path is correct.
 
+### About `create-cloudflare` Command
+
+The `npx create-cloudflare@latest` command is designed for **new projects**. Since this project already has:
+- Complete `wrangler.toml` configuration
+- Worker code structure
+- All necessary files
+
+**You don't need to run it.** Just use Wrangler CLI directly with the commands above.
+
+If you did run it and it created a `dragonmall` directory, you can safely delete it - it's not needed for this project.
+
 ## Integration with GitHub Actions
 
 The project also includes GitHub Actions workflow (`.github/workflows/deploy.yml`) that automatically deploys on push to `main`. This uses:
@@ -213,17 +227,17 @@ The project also includes GitHub Actions workflow (`.github/workflows/deploy.yml
     command: deploy
 ```
 
-## Next Steps
+## Quick Start Checklist
 
-1. **Set up Cloudflare resources** (D1, R2, KV, Queue) - see `DEPLOYMENT.md`
-2. **Set required secrets** using `wrangler secret put`
-3. **Run database migrations** using `npm run db:migrate:prod`
-4. **Deploy the worker** using `wrangler deploy`
-5. **Deploy frontend apps** to Cloudflare Pages (separate from Workers)
+1. ✅ **Authenticate**: `wrangler login`
+2. ✅ **Set up resources** (D1, R2, KV, Queue) - see `DEPLOYMENT.md`
+3. ✅ **Set required secrets**: `wrangler secret put JWT_SECRET` (etc.)
+4. ✅ **Run database migrations**: `npm run db:migrate:prod`
+5. ✅ **Deploy the worker**: `cd infra && wrangler deploy`
+6. ✅ **Deploy frontend apps** to Cloudflare Pages (separate from Workers)
 
 ## Resources
 
 - [Wrangler Documentation](https://developers.cloudflare.com/workers/wrangler/)
 - [Wrangler Commands Reference](https://developers.cloudflare.com/workers/wrangler/commands/)
 - [wrangler.toml Configuration](https://developers.cloudflare.com/workers/wrangler/configuration/)
-
