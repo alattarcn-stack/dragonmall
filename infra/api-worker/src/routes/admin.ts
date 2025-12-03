@@ -8,6 +8,7 @@ import { sendSupportReplyEmail } from '../utils/email'
 import { logError, logInfo } from '../utils/logging'
 import { parsePaginationParams, getOffset, createPaginatedResponse } from '../utils/pagination'
 import { makeError, ErrorCodes } from '../utils/errors'
+import { logOrderRefund, logOrderStatusChange } from '../utils/audit-log'
 
 export function createAdminRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -417,6 +418,10 @@ export function createAdminRouter(env: Env) {
         return c.json({ error: 'Invalid order ID' }, 400)
       }
 
+      // Get admin ID from context
+      const adminId = c.get('userId')
+      const requestId = c.get('requestId')
+
       const body = await c.req.json().catch(() => ({}))
       const reason = body.reason || null
 
@@ -425,6 +430,9 @@ export function createAdminRouter(env: Env) {
       if (!order) {
         return c.json({ error: 'Order not found' }, 404)
       }
+
+      // Get old status for audit log
+      const oldStatus = order.status
 
       // Validate order is paid/completed
       if (order.status !== 'completed' && order.status !== 'processing') {
@@ -528,7 +536,29 @@ export function createAdminRouter(env: Env) {
 
         // Mark order as refunded and disable downloads
         if (refundStatus === 'succeeded') {
-          await orderService.markOrderRefunded(orderId)
+          const refundedOrder = await orderService.markOrderRefunded(orderId)
+          
+          // Audit log: Order refunded
+          logOrderRefund(
+            orderId,
+            refund.id,
+            refundAmount,
+            reason,
+            adminId || null,
+            requestId,
+            env
+          )
+          
+          // Audit log: Order status change
+          logOrderStatusChange(
+            orderId,
+            oldStatus,
+            refundedOrder.status,
+            adminId || null,
+            'admin',
+            requestId,
+            env
+          )
         }
 
         // Get updated order and payment

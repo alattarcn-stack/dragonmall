@@ -3,6 +3,7 @@ import type { Env } from '../types'
 import { UserService } from '@dragon/core'
 import { hashPassword } from '../utils/password'
 import { makeError, ErrorCodes } from '../utils/errors'
+import { logAdminCreated } from '../utils/audit-log'
 
 /**
  * Development-only route to seed an initial admin user
@@ -99,6 +100,16 @@ export function createAdminSeedRouter(env: Env) {
         .prepare('UPDATE users SET role = ? WHERE id = ?')
         .bind('admin', admin.id)
         .run()
+
+      // Audit log: Admin created (system action via seed endpoint)
+      const requestId = c.get('requestId')
+      logAdminCreated(
+        admin.id,
+        admin.email,
+        null, // Created by system (seed endpoint)
+        requestId,
+        env
+      )
 
       return c.json({
         data: {

@@ -3,6 +3,7 @@ import type { Env } from '../types'
 import { OrderService, ProductService, InventoryService, DownloadService } from '@dragon/core'
 import { OrderCreateSchema, formatValidationError } from '../validation/schemas'
 import { makeError, ErrorCodes } from '../utils/errors'
+import { logOrderStatusChange, logOrderPaid, logOrderFulfilled } from '../utils/audit-log'
 
 export function createOrdersRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -138,8 +139,23 @@ export function createOrdersRouter(env: Env) {
         return c.json(makeError(ErrorCodes.ORDER_NOT_PENDING, `Cannot mark order as paid. Current status: ${order.status}. Only pending orders can be marked as paid.`, { currentStatus: order.status }), 400)
       }
 
+      // Get old status for audit log
+      const oldStatus = order.status
+
       // Mark order as paid
       const updatedOrder = await orderService.markPaid(id)
+
+      // Audit log: Order status change (pending -> processing)
+      const requestId = c.get('requestId')
+      logOrderStatusChange(
+        id,
+        oldStatus,
+        updatedOrder.status,
+        userId || null,
+        isAdmin ? 'admin' : 'user',
+        requestId,
+        c.env
+      )
 
       // Auto-fulfill if possible
       const orderItems = await orderService.getOrderItems(id)
@@ -156,11 +172,51 @@ export function createOrdersRouter(env: Env) {
           ).join('\n')
 
           await orderService.updateFulfillmentResult(id, codeList)
-          await orderService.updateStatus(id, 'completed')
+          const fulfilledOrder = await orderService.updateStatus(id, 'completed')
+          
+          // Audit log: Order fulfilled
+          logOrderFulfilled(
+            id,
+            userId || null,
+            isAdmin ? 'admin' : 'user',
+            requestId,
+            c.env
+          )
+          
+          // Audit log: Order status change (processing -> completed)
+          logOrderStatusChange(
+            id,
+            'processing',
+            fulfilledOrder.status,
+            userId || null,
+            isAdmin ? 'admin' : 'user',
+            requestId,
+            c.env
+          )
         } else if (product.productType === 'digital') {
           // Create download link
           await downloadService.createDownloadLink(id, item.productId, updatedOrder.userId || undefined)
-          await orderService.updateStatus(id, 'completed')
+          const fulfilledOrder = await orderService.updateStatus(id, 'completed')
+          
+          // Audit log: Order fulfilled
+          logOrderFulfilled(
+            id,
+            userId || null,
+            isAdmin ? 'admin' : 'user',
+            requestId,
+            c.env
+          )
+          
+          // Audit log: Order status change (processing -> completed)
+          logOrderStatusChange(
+            id,
+            'processing',
+            fulfilledOrder.status,
+            userId || null,
+            isAdmin ? 'admin' : 'user',
+            requestId,
+            c.env
+          )
         }
       }
 

@@ -6,6 +6,7 @@ import { sendOrderConfirmationEmail } from '../utils/email'
 import { logError, logInfo } from '../utils/logging'
 import { verifyPayPalWebhook, extractPayPalHeaders } from '../utils/paypal-webhook'
 import { makeError, ErrorCodes } from '../utils/errors'
+import { logOrderStatusChange, logOrderPaid, logOrderFulfilled } from '../utils/audit-log'
 import Stripe from 'stripe'
 import paypal from '@paypal/checkout-server-sdk'
 
@@ -93,9 +94,34 @@ export function createPaymentsRouter(env: Env) {
       }
     }
 
+    // Get order status before fulfillment
+    const oldStatus = order.status
+
     // Update order with fulfillment result and status atomically
     const fulfillmentText = fulfillmentResults.join('\n\n')
-    await orderService.fulfillOrder(orderId, fulfillmentText)
+    const fulfilledOrder = await orderService.fulfillOrder(orderId, fulfillmentText)
+    
+    // Audit log: Order fulfilled (if status changed)
+    if (fulfilledOrder.status !== oldStatus) {
+      logOrderFulfilled(
+        orderId,
+        null, // System action
+        'system',
+        undefined,
+        env
+      )
+      
+      // Audit log: Order status change
+      logOrderStatusChange(
+        orderId,
+        oldStatus,
+        fulfilledOrder.status,
+        null,
+        'system',
+        undefined,
+        env
+      )
+    }
 
     // Send order confirmation email
     if (order.customerEmail) {
@@ -267,14 +293,65 @@ export function createPaymentsRouter(env: Env) {
             return c.json(makeError(ErrorCodes.PAYMENT_AMOUNT_MISMATCH, 'Payment amount does not match order amount', { expectedAmount, receivedAmount: paymentIntent.amount }), 400)
           }
 
+          // Get order status before changes
+          const orderBefore = await orderService.getById(orderId)
+          const oldStatus = orderBefore?.status || 'unknown'
+
           // Confirm payment
+          const payment = await paymentService.getByTransactionNumber(transactionNumber)
           await paymentService.confirmPayment(transactionNumber, paymentIntent.id)
 
           // Mark order as paid
-          await orderService.markPaid(orderId)
+          const paidOrder = await orderService.markPaid(orderId)
+
+          // Audit log: Order paid (system action from webhook)
+          logOrderPaid(
+            orderId,
+            payment?.id || 0,
+            paymentIntent.amount,
+            null, // System action (webhook)
+            'system',
+            undefined, // No requestId for webhooks
+            env
+          )
+
+          // Audit log: Order status change
+          logOrderStatusChange(
+            orderId,
+            oldStatus,
+            paidOrder.status,
+            null, // System action (webhook)
+            'system',
+            undefined,
+            env
+          )
 
           // Fulfill order (allocate codes, create downloads)
           await fulfillOrder(orderId)
+          
+          // Get final order status
+          const finalOrder = await orderService.getById(orderId)
+          if (finalOrder && finalOrder.status !== paidOrder.status) {
+            // Audit log: Order fulfilled
+            logOrderFulfilled(
+              orderId,
+              null,
+              'system',
+              undefined,
+              env
+            )
+            
+            // Audit log: Order status change (processing -> completed)
+            logOrderStatusChange(
+              orderId,
+              paidOrder.status,
+              finalOrder.status,
+              null,
+              'system',
+              undefined,
+              env
+            )
+          }
         }
       } else if (event.type === 'payment_intent.payment_failed') {
         const paymentIntent = event.data.object as Stripe.PaymentIntent
@@ -490,6 +567,10 @@ export function createPaymentsRouter(env: Env) {
               return c.json(makeError(ErrorCodes.PAYMENT_AMOUNT_MISMATCH, 'Payment amount does not match order amount', { expectedAmount, receivedAmount: captureAmountCents }), 400)
             }
 
+            // Get order status before changes
+            const orderBefore = await orderService.getById(payment.orderId)
+            const oldStatus = orderBefore?.status || 'unknown'
+
             // Confirm payment
             await paymentService.confirmPayment(
               payment.transactionNumber,
@@ -497,10 +578,57 @@ export function createPaymentsRouter(env: Env) {
             )
 
             // Mark order as paid
-            await orderService.markPaid(payment.orderId)
+            const paidOrder = await orderService.markPaid(payment.orderId)
+
+            // Audit log: Order paid (system action from webhook)
+            const captureAmountCents = Math.round(parseFloat(resource.amount.value || '0') * 100)
+            logOrderPaid(
+              payment.orderId,
+              payment.id,
+              captureAmountCents,
+              null, // System action (webhook)
+              'system',
+              undefined, // No requestId for webhooks
+              env
+            )
+
+            // Audit log: Order status change
+            logOrderStatusChange(
+              payment.orderId,
+              oldStatus,
+              paidOrder.status,
+              null, // System action (webhook)
+              'system',
+              undefined,
+              env
+            )
 
             // Fulfill order
             await fulfillOrder(payment.orderId)
+            
+            // Get final order status
+            const finalOrder = await orderService.getById(payment.orderId)
+            if (finalOrder && finalOrder.status !== paidOrder.status) {
+              // Audit log: Order fulfilled
+              logOrderFulfilled(
+                payment.orderId,
+                null,
+                'system',
+                undefined,
+                env
+              )
+              
+              // Audit log: Order status change (processing -> completed)
+              logOrderStatusChange(
+                payment.orderId,
+                paidOrder.status,
+                finalOrder.status,
+                null,
+                'system',
+                undefined,
+                env
+              )
+            }
 
             logInfo('PayPal payment processed successfully', {
               paymentId: payment.id,
