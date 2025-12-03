@@ -32,16 +32,35 @@ export async function generateCartToken(cartId: number, env: Env): Promise<strin
 
 /**
  * Verify and extract cart ID from signed token
+ * Returns null if token is invalid, expired, or cart doesn't exist
  */
 export async function verifyCartToken(token: string, env: Env): Promise<number | null> {
   try {
     const secret = getJWTSecret(env)
     const payload = await verifyJWT(token, secret)
+    
+    // verifyJWT already checks expiration (exp claim), so if we get here, token is valid
     if (payload && payload.sub) {
-      return payload.sub
+      const cartId = Number(payload.sub)
+      
+      // Verify cart still exists in database (optional but recommended)
+      const cart = await env.D1_DATABASE
+        .prepare('SELECT id FROM orders WHERE id = ? AND status = ?')
+        .bind(cartId, 'cart')
+        .first<{ id: number }>()
+      
+      if (cart) {
+        return cartId
+      }
+      
+      // Cart doesn't exist - token is invalid
+      return null
     }
+    
     return null
   } catch (error) {
+    // Token is invalid, expired, or malformed - return null
+    // This includes JWT expiration errors from verifyJWT
     return null
   }
 }
@@ -88,17 +107,12 @@ export async function getOrCreateCart(
   // For guest users, verify cart token
   if (cartToken) {
     const cartId = await verifyCartToken(cartToken, env)
+    // verifyCartToken already checks expiration and cart existence
+    // If it returns a cartId, the token is valid and cart exists
     if (cartId) {
-      // Verify cart still exists and is a cart
-      const cart = await env.D1_DATABASE
-        .prepare('SELECT id FROM orders WHERE id = ? AND status = ?')
-        .bind(cartId, 'cart')
-        .first<{ id: number }>()
-
-      if (cart) {
-        return { cartId: cart.id, isNew: false }
-      }
+      return { cartId, isNew: false }
     }
+    // If token is expired, invalid, or cart doesn't exist, fall through to create new cart
   }
 
   // Create new cart for guest
