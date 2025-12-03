@@ -157,22 +157,25 @@ app.get('/api/admin/auth/me', async (c) => {
 })
 
 // Admin Seed (DEV ONLY - heavily secured)
-// Only mount this route when NOT in production
-// Requires SEED_SECRET header matching env.SEED_SECRET
-if (env.ENVIRONMENT !== 'production') {
-  app.post('/api/admin/seed', async (c) => {
-    // Require SEED_SECRET to be configured
-    if (!c.env.SEED_SECRET) {
-      return c.json({ 
-        error: 'Seed endpoint not configured',
-        message: 'SEED_SECRET must be set in environment variables'
-      }, 500)
-    }
-    
-    const router = createAdminSeedRouter(c.env)
-    return router.fetch(c.req.raw, c.env, c.executionCtx)
-  })
-}
+// Route is only functional when NOT in production (checked in handler)
+// Requires x-seed-secret header matching SEED_SECRET env var
+app.post('/api/admin/seed', async (c) => {
+  // First check: Block in production (route should not be accessible)
+  if (c.env.ENVIRONMENT === 'production') {
+    return c.json({ error: 'Not available in production' }, 403)
+  }
+  
+  // Require SEED_SECRET to be configured
+  if (!c.env.SEED_SECRET) {
+    return c.json({ 
+      error: 'Seed endpoint not configured',
+      message: 'SEED_SECRET must be set in environment variables'
+    }, 500)
+  }
+  
+  const router = createAdminSeedRouter(c.env)
+  return router.fetch(c.req.raw, c.env, c.executionCtx)
+})
 
 // Customer Auth (public, but requires CSRF protection for state-changing operations)
 app.post('/api/auth/signup', csrfProtection, async (c) => {
