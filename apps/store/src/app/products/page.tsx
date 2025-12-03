@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { ProductCard } from '@/components/ProductCard'
 import { getProducts, getCategories } from '@dragon/api'
@@ -18,7 +18,7 @@ interface Category {
 
 type SortOption = 'relevance' | 'price_asc' | 'price_desc' | 'newest'
 
-export default function ProductsPage() {
+function ProductsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   
@@ -193,5 +193,19 @@ export default function ProductsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function ProductsPage() {
+  return (
+    <Suspense fallback={
+      <div className="container mx-auto px-4 py-8">
+        <div className="text-center py-16">
+          <p className="text-gray-500 dark:text-gray-400 text-lg">Loading...</p>
+        </div>
+      </div>
+    }>
+      <ProductsPageContent />
+    </Suspense>
   )
 }

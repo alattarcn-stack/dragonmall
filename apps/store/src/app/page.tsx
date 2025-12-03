@@ -4,6 +4,9 @@ import { ProductCard } from '@/components/ProductCard'
 import { getProducts } from '@dragon/api'
 import type { Product } from '@dragon/core'
 
+// Force dynamic rendering to avoid build-time API calls
+export const dynamic = 'force-dynamic'
+
 async function getFeaturedProducts(): Promise<Product[]> {
   try {
     return await getProducts({ limit: 6 })

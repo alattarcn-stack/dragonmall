@@ -4,6 +4,9 @@ import { Button } from '@/components/ui/button'
 import { getOrder } from '@dragon/api'
 import { CheckoutForm } from '@/components/CheckoutForm'
 
+// Force dynamic rendering to avoid build-time API calls
+export const dynamic = 'force-dynamic'
+
 interface CheckoutPageProps {
   params: {
     orderId: string
