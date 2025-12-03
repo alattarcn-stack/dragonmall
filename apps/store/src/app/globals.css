@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 221.2 83.2% 53.3%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 221.2 83.2% 53.3%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 217.2 91.2% 59.8%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 224.3 76.3% 48%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+    max-width: 650px;
+    margin: 0 auto;
+  }
+}
+
+/* Storegg Template Styles */
+.fui-goods-item {
+  padding: 0.35rem;
+  background: #fff;
+  border-radius: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.fui-goods-item .image {
+  width: 3.2rem;
+  height: 3.2rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+.fui-goods-item .detail .price .buy {
+  color: #fff;
+  background: #1492fb;
+  border-radius: 3px;
+  line-height: 1.1rem;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.fui-goods-item .detail .price .buy:hover {
+  background: #0d7ed8;
+}
+
+.fui-goods-item .detail .sale {
+  height: 1.7rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  font-size: 0.65rem;
+  line-height: 0.9rem;
+}
+
+.pro_content {
+  background-image: linear-gradient(130deg, #00F5B2, #1FC3FF, #00dbde);
+  height: 120px;
+  position: relative;
+  margin-bottom: 4rem;
+  background-size: 300%;
+  animation: bganimation 10s infinite;
+}
+
+@keyframes bganimation {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.aui-btn-red {
+  background-image: linear-gradient(to right, rgb(255, 119, 0), rgb(255, 73, 0));
+}
+
+.aui-btn {
+  position: relative;
+  z-index: 10;
+  line-height: 55px;
+  text-align: center;
+  color: #fff;
+  font-size: 14px;
+  -webkit-user-select: none;
+  width: 100%;
+  font-weight: bold;
+  border: none;
+  outline: none;
+  cursor: pointer;
+}
+
+.aui-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.assemble-footer.footer {
+  background-color: rgba(255, 255, 255, 0.7);
+  max-width: 650px;
+  z-index: 100;
+  border-top: 1px solid #e5e5e5;
+}
+
+.aui-footer-flex {
+  display: flex;
+  align-items: center;
+}
+
+.aui-footer-wrap {
+  width: 30%;
+  height: 55px;
+}
+
+.aui-footer-group {
+  flex: 1;
+  height: 55px;
+}

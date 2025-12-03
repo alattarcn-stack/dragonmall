@@ -1,0 +1,132 @@
+# Cloudflare Workers Configuration for Dragon Station 2026 API
+# This file configures the API worker that handles all backend requests
+
+name = "dragon-station-2026-api"
+main = "api-worker/src/worker.ts"
+compatibility_date = "2024-01-01"
+
+# Production Routes
+# Configure your custom domain here (optional)
+# To set up a custom domain:
+# 1. Add your domain to Cloudflare
+# 2. Create a route in the Cloudflare dashboard
+# 3. Update the pattern and zone_name below
+[env.production]
+routes = [
+  # Example: { pattern = "api.dragonstation.com", zone_name = "dragonstation.com" }
+  # Uncomment and update with your actual domain:
+  # { pattern = "api.yourdomain.com", zone_name = "yourdomain.com" }
+]
+
+# ============================================================================
+# D1 DATABASE BINDING
+# ============================================================================
+# D1 is Cloudflare's SQLite-based database
+# 
+# To create the database:
+#   1. Run: wrangler d1 create dragon-station-db
+#   2. Copy the database_id from the output
+#   3. Paste it in the database_id field below
+#   4. For local development, also copy preview_database_id
+#
+# To list existing databases:
+#   wrangler d1 list
+#
+[[d1_databases]]
+binding = "D1_DATABASE"
+database_name = "dragon-station-db"
+database_id = "" # REQUIRED: Set after running `wrangler d1 create dragon-station-db`
+# preview_database_id = "" # Optional: For local development, copy from create command output
+
+# ============================================================================
+# R2 BUCKET BINDING
+# ============================================================================
+# R2 is Cloudflare's object storage (S3-compatible)
+# Used for storing digital product files, images, etc.
+#
+# To create the bucket:
+#   1. Run: wrangler r2 bucket create dragon-station-assets
+#   2. The bucket_name below should match the bucket you created
+#
+# To list existing buckets:
+#   wrangler r2 bucket list
+#
+[[r2_buckets]]
+binding = "R2_BUCKET"
+bucket_name = "dragon-station-assets"
+
+# ============================================================================
+# KV NAMESPACE BINDING
+# ============================================================================
+# KV is Cloudflare's key-value store
+# Used for rate limiting, session storage, etc.
+#
+# To create the KV namespace:
+#   1. Run: wrangler kv:namespace create KV_SESSIONS
+#   2. Copy the id from the output
+#   3. Paste it in the id field below
+#   4. For local development, also run: wrangler kv:namespace create KV_SESSIONS --preview
+#   5. Copy the preview_id and paste it in preview_id below
+#
+# To list existing namespaces:
+#   wrangler kv:namespace list
+#
+[[kv_namespaces]]
+binding = "KV_SESSIONS"
+id = "" # REQUIRED: Set after running `wrangler kv:namespace create KV_SESSIONS`
+preview_id = "" # Optional: For local development, set after running with --preview flag
+
+# ============================================================================
+# QUEUE BINDING
+# ============================================================================
+# Queues are used for asynchronous processing
+# Used for webhook processing, background jobs, etc.
+#
+# To create the queue:
+#   1. Run: wrangler queues create webhook-queue
+#   2. The queue name below should match the queue you created
+#
+# Note: Queue bindings are automatically created when you deploy
+# To list existing queues:
+#   wrangler queues list
+#
+[[queues]]
+binding = "QUEUE_WEBHOOKS"
+queue = "webhook-queue"
+
+# ============================================================================
+# ENVIRONMENT VARIABLES
+# ============================================================================
+# These are public variables (visible in code)
+# For secrets (API keys, tokens), use `wrangler secret put` instead
+#
+[vars]
+ENVIRONMENT = "development"
+FRONTEND_URL = "http://localhost:3000"
+
+# ============================================================================
+# SECRETS (Set via wrangler secret put)
+# ============================================================================
+# These are NOT set in this file. Use the commands below to set them:
+#
+# JWT Secret (REQUIRED):
+#   wrangler secret put JWT_SECRET
+#
+# Stripe Keys (REQUIRED for payments):
+#   wrangler secret put STRIPE_SECRET_KEY
+#   wrangler secret put STRIPE_WEBHOOK_SECRET
+#   wrangler secret put STRIPE_PUBLISHABLE_KEY
+#
+# PayPal Keys (REQUIRED for payments):
+#   wrangler secret put PAYPAL_CLIENT_ID
+#   wrangler secret put PAYPAL_CLIENT_SECRET
+#
+# Optional File Upload Configuration:
+#   wrangler secret put MAX_FILE_SIZE
+#   wrangler secret put ALLOWED_FILE_TYPES
+#
+# To list all secrets:
+#   wrangler secret list
+#
+# To delete a secret:
+#   wrangler secret delete SECRET_NAME

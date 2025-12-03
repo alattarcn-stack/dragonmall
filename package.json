@@ -1,0 +1,39 @@
+{
+  "name": "dragon-station-2026",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:store": "next dev --dir apps/store -p 3000",
+    "dev:admin": "next dev --dir apps/admin -p 3001",
+    "dev:worker": "wrangler dev --config infra/wrangler.toml",
+    "build": "npm run build --workspaces",
+    "type-check": "tsc --build --force",
+    "lint": "eslint . --ext .ts,.tsx",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "db:migrate": "wrangler d1 execute dragon-station-db --file=./infra/db/schema.sql",
+    "db:migrate:remote": "wrangler d1 execute dragon-station-db --file=./infra/db/schema.sql --remote",
+    "db:migrate:prod": "wrangler d1 execute dragon-station-db --remote --file=./infra/db/schema.sql",
+    "db:migrate:script": "tsx infra/db/migrate.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.3",
+    "eslint": "^8.55.0",
+    "@typescript-eslint/eslint-plugin": "^6.15.0",
+    "@typescript-eslint/parser": "^6.15.0",
+    "tsx": "^4.7.0",
+    "wrangler": "^3.19.0",
+    "vitest": "^1.2.0",
+    "@vitest/coverage-v8": "^1.2.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
+
