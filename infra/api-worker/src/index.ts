@@ -78,12 +78,25 @@ app.use('/*', cors({
 }))
 
 // Health check
-app.get('/health', (c) => {
-  return c.json({ 
-    status: 'ok', 
-    timestamp: new Date().toISOString(),
-    environment: c.env.ENVIRONMENT || 'development'
-  })
+app.get('/health', async (c) => {
+  const { performHealthCheck } = await import('./utils/health-check')
+  const health = await performHealthCheck(c.env)
+  
+  // Return appropriate status code based on health
+  const statusCode = health.status === 'error' ? 503 : health.status === 'degraded' ? 200 : 200
+  
+  return c.json(health, statusCode)
+})
+
+// Also expose at /api/health for consistency
+app.get('/api/health', async (c) => {
+  const { performHealthCheck } = await import('./utils/health-check')
+  const health = await performHealthCheck(c.env)
+  
+  // Return appropriate status code based on health
+  const statusCode = health.status === 'error' ? 503 : health.status === 'degraded' ? 200 : 200
+  
+  return c.json(health, statusCode)
 })
 
 // Public API routes (no auth required)

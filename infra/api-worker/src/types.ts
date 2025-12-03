@@ -36,5 +36,8 @@ export interface Env {
   
   // Development seed (local dev only)
   SEED_SECRET?: string // Secret required to use admin seed endpoint (dev only)
+  
+  // Application version (optional, can be set during deployment)
+  VERSION?: string // Application version (e.g., '1.0.0')
 }
 
