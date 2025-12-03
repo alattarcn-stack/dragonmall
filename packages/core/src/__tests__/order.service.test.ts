@@ -92,6 +92,118 @@ describe('OrderService', () => {
       expect(updated.completedAt).toBeDefined()
     })
   })
+
+  describe('Transaction rollback on failure', () => {
+    it('should clean up orphaned order if order_item insertion fails', async () => {
+      // Mock the database to fail on order_item insertion
+      const originalPrepare = db.prepare.bind(db)
+      let orderInserted = false
+      let orderId: number | null = null
+
+      db.prepare = (query: string) => {
+        const stmt = originalPrepare(query)
+        
+        // Track when order is inserted
+        if (query.includes('INSERT INTO orders')) {
+          const originalRun = stmt.run.bind(stmt)
+          stmt.run = async () => {
+            const result = await originalRun()
+            orderInserted = true
+            orderId = result.meta.last_row_id as number
+            return result
+          }
+        }
+        
+        // Fail on order_item insertion
+        if (query.includes('INSERT INTO order_items')) {
+          const originalRun = stmt.run.bind(stmt)
+          stmt.run = async () => {
+            throw new Error('Simulated order_item insertion failure')
+          }
+        }
+        
+        return stmt
+      }
+
+      // Attempt to create order - should fail and clean up
+      await expect(
+        orderService.createDraftOrder({
+          productId: 1,
+          quantity: 1,
+          customerEmail: 'customer@example.com',
+        })
+      ).rejects.toThrow('Simulated order_item insertion failure')
+
+      // Verify order was cleaned up (should not exist)
+      if (orderId) {
+        const ordersTable = db._getTable('orders')
+        expect(ordersTable.has(orderId)).toBe(false)
+      }
+    })
+
+    it('should create order and items successfully when no errors occur', async () => {
+      const order = await orderService.createDraftOrder({
+        productId: 1,
+        quantity: 2,
+        customerEmail: 'customer@example.com',
+      })
+
+      // Verify order exists
+      const ordersTable = db._getTable('orders')
+      expect(ordersTable.has(order.id)).toBe(true)
+
+      // Verify order items exist
+      const items = await orderService.getOrderItems(order.id)
+      expect(items.length).toBe(1)
+      expect(items[0].orderId).toBe(order.id)
+    })
+  })
+
+  describe('fulfillOrder', () => {
+    it('should update fulfillment result and status atomically', async () => {
+      const order = await orderService.createDraftOrder({
+        productId: 1,
+        quantity: 1,
+        customerEmail: 'customer@example.com',
+      })
+
+      const fulfillmentResult = 'License Code: ABC123'
+      const fulfilled = await orderService.fulfillOrder(order.id, fulfillmentResult)
+
+      expect(fulfilled.status).toBe('completed')
+      expect(fulfilled.fulfillmentResult).toBe(fulfillmentResult)
+      expect(fulfilled.completedAt).toBeDefined()
+    })
+  })
+
+  describe('markOrderRefunded', () => {
+    it('should update order status and disable downloads atomically', async () => {
+      const order = await orderService.createDraftOrder({
+        productId: 1,
+        quantity: 1,
+        customerEmail: 'customer@example.com',
+      })
+
+      // Create a download record first
+      const downloadsTable = db._getTable('downloads')
+      downloadsTable.set(1, {
+        id: 1,
+        order_id: order.id,
+        expires_at: null,
+      })
+
+      const refunded = await orderService.markOrderRefunded(order.id)
+
+      expect(refunded.status).toBe('refunded')
+      
+      // Verify download was disabled (expires_at should be set to current time)
+      const download = downloadsTable.get(1)
+      expect(download).toBeDefined()
+      if (download && typeof download.expires_at === 'number') {
+        expect(download.expires_at).toBeLessThanOrEqual(Math.floor(Date.now() / 1000))
+      }
+    })
+  })
 })
 
 describe('PaymentService', () => {

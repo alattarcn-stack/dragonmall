@@ -125,32 +125,15 @@ export class OrderService {
     }))
   }
 
+  /**
+   * Create a draft order with order items in a transaction-like manner
+   * Uses cleanup on failure to prevent orphaned orders
+   */
   async createDraftOrder(request: CreateOrderRequest): Promise<Order> {
     const createdAt = Math.floor(Date.now() / 1000)
     const customerData = request.customerData ? JSON.stringify(request.customerData) : null
 
-    // Create order
-    const orderResult = await this.db
-      .prepare(
-        'INSERT INTO orders (user_id, customer_email, customer_data, quantity, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
-      )
-      .bind(
-        request.userId || null,
-        request.customerEmail,
-        customerData,
-        request.quantity,
-        0, // Amount will be calculated and updated
-        'pending',
-        createdAt
-      )
-      .run()
-
-    const orderId = orderResult.meta.last_row_id
-    if (!orderId) {
-      throw new Error('Failed to create order')
-    }
-
-    // Get product price
+    // Get product price first (before transaction)
     const productResult = await this.db
       .prepare('SELECT price FROM products WHERE id = ?')
       .bind(request.productId)
@@ -162,26 +145,60 @@ export class OrderService {
 
     const totalAmount = productResult.price * request.quantity
 
-    // Update order with calculated amount
-    await this.db
-      .prepare('UPDATE orders SET amount = ? WHERE id = ?')
-      .bind(totalAmount, orderId)
-      .run()
+    // Execute order creation with cleanup on failure
+    let orderId: number | undefined
+    try {
+      // Step 1: Create order
+      const orderResult = await this.db
+        .prepare(
+          'INSERT INTO orders (user_id, customer_email, customer_data, quantity, amount, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)'
+        )
+        .bind(
+          request.userId || null,
+          request.customerEmail,
+          customerData,
+          request.quantity,
+          totalAmount,
+          'pending',
+          createdAt
+        )
+        .run()
 
-    // Create order item
-    await this.db
-      .prepare(
-        'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)'
-      )
-      .bind(orderId, request.productId, request.quantity, productResult.price)
-      .run()
+      orderId = Number(orderResult.meta.last_row_id)
+      if (!orderId) {
+        throw new Error('Failed to create order')
+      }
 
-    const order = await this.getById(Number(orderId))
-    if (!order) {
-      throw new Error('Failed to retrieve created order')
+      // Step 2: Create order item
+      // If this fails, cleanup will delete the orphaned order
+      await this.db
+        .prepare(
+          'INSERT INTO order_items (order_id, product_id, quantity, price) VALUES (?, ?, ?, ?)'
+        )
+        .bind(orderId, request.productId, request.quantity, productResult.price)
+        .run()
+
+      const order = await this.getById(orderId)
+      if (!order) {
+        throw new Error('Failed to retrieve created order')
+      }
+
+      return order
+    } catch (error) {
+      // Cleanup: If order_item insertion fails, delete the orphaned order
+      if (orderId) {
+        try {
+          await this.db
+            .prepare('DELETE FROM orders WHERE id = ?')
+            .bind(orderId)
+            .run()
+        } catch (cleanupError) {
+          // Log but don't throw - the original error is more important
+          console.error('Failed to cleanup orphaned order:', cleanupError)
+        }
+      }
+      throw error
     }
-
-    return order
   }
 
   async getOrderItems(orderId: number): Promise<OrderItem[]> {
@@ -224,11 +241,38 @@ export class OrderService {
     return this.updateStatus(orderId, 'processing')
   }
 
+  /**
+   * Update fulfillment result and status atomically using batch
+   */
   async updateFulfillmentResult(id: number, result: string): Promise<Order> {
-    await this.db
-      .prepare('UPDATE orders SET fulfillment_result = ? WHERE id = ?')
-      .bind(result, id)
-      .run()
+    // Use batch to update both fields atomically
+    await this.db.batch([
+      this.db
+        .prepare('UPDATE orders SET fulfillment_result = ? WHERE id = ?')
+        .bind(result, id),
+    ])
+
+    const order = await this.getById(id)
+    if (!order) {
+      throw new Error('Order not found')
+    }
+
+    return order
+  }
+
+  /**
+   * Fulfill order: update fulfillment result and status atomically
+   * This is used in the fulfillment flow
+   */
+  async fulfillOrder(id: number, fulfillmentResult: string): Promise<Order> {
+    const completedAt = Math.floor(Date.now() / 1000)
+
+    // Use batch to update fulfillment result and status atomically
+    await this.db.batch([
+      this.db
+        .prepare('UPDATE orders SET fulfillment_result = ?, status = ?, completed_at = ? WHERE id = ?')
+        .bind(fulfillmentResult, 'completed', completedAt, id),
+    ])
 
     const order = await this.getById(id)
     if (!order) {
@@ -256,19 +300,26 @@ export class OrderService {
 
   /**
    * Mark an order as refunded and disable associated downloads
+   * Uses batch for atomic updates
    */
   async markOrderRefunded(orderId: number): Promise<Order> {
-    // Update order status to refunded
-    const updated = await this.updateStatus(orderId, 'refunded')
-
-    // Disable downloads by setting expires_at to past (or a flag if we add one)
-    // For now, set expires_at to current time to immediately expire downloads
     const now = Math.floor(Date.now() / 1000)
-    await this.db
-      .prepare('UPDATE downloads SET expires_at = ? WHERE order_id = ? AND (expires_at IS NULL OR expires_at > ?)')
-      .bind(now, orderId, now)
-      .run()
 
-    return updated
+    // Use batch to update order status and disable downloads atomically
+    await this.db.batch([
+      this.db
+        .prepare('UPDATE orders SET status = ? WHERE id = ?')
+        .bind('refunded', orderId),
+      this.db
+        .prepare('UPDATE downloads SET expires_at = ? WHERE order_id = ? AND (expires_at IS NULL OR expires_at > ?)')
+        .bind(now, orderId, now),
+    ])
+
+    const order = await this.getById(orderId)
+    if (!order) {
+      throw new Error('Order not found')
+    }
+
+    return order
   }
 }

@@ -92,10 +92,9 @@ export function createPaymentsRouter(env: Env) {
       }
     }
 
-    // Update order with fulfillment result
+    // Update order with fulfillment result and status atomically
     const fulfillmentText = fulfillmentResults.join('\n\n')
-    await orderService.updateFulfillmentResult(orderId, fulfillmentText)
-    await orderService.updateStatus(orderId, 'completed')
+    await orderService.fulfillOrder(orderId, fulfillmentText)
 
     // Send order confirmation email
     if (order.customerEmail) {

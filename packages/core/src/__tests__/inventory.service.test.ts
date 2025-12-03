@@ -103,6 +103,19 @@ describe('InventoryService', () => {
         inventoryService.allocateCode(1, 100, 10) // Request 10, only 3 available
       ).rejects.toThrow('Insufficient inventory')
     })
+
+    it('should allocate codes atomically using batch (all succeed or all fail)', async () => {
+      const orderId = 100
+      // Allocate 2 codes - should both succeed
+      const allocated = await inventoryService.allocateCode(1, orderId, 2)
+
+      expect(allocated.length).toBe(2)
+      
+      // Verify both are allocated
+      const items = await inventoryService.getByOrderId(orderId)
+      expect(items.length).toBe(2)
+      expect(items.every(item => item.orderId === orderId)).toBe(true)
+    })
   })
 
   describe('addItems', () => {

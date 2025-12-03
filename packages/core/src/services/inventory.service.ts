@@ -35,6 +35,10 @@ export class InventoryService {
     return result?.count || 0
   }
 
+  /**
+   * Allocate license codes for an order using batch for atomicity
+   * If any allocation fails, none are applied
+   */
   async allocateCode(productId: number, orderId: number, quantity: number): Promise<InventoryItem[]> {
     // Get available codes
     const available = await this.getAvailableByProductId(productId)
@@ -43,30 +47,29 @@ export class InventoryService {
       throw new Error(`Insufficient inventory. Available: ${available.length}, Requested: ${quantity}`)
     }
 
-    const allocated: InventoryItem[] = []
     const allocatedAt = Math.floor(Date.now() / 1000)
 
-    // Allocate codes
-    for (let i = 0; i < quantity; i++) {
-      const item = available[i]
-      
-      await this.db
+    // Prepare batch of updates for atomic allocation
+    // All updates succeed or all fail
+    const batch = available.slice(0, quantity).map(item =>
+      this.db
         .prepare('UPDATE inventory_items SET order_id = ?, allocated_at = ? WHERE id = ?')
         .bind(orderId, allocatedAt, item.id)
-        .run()
+    )
 
-      allocated.push({
-        id: item.id,
-        productId: item.productId || item.product_id,
-        licenseCode: item.licenseCode || item.license_code,
-        password: item.password || null,
-        orderId,
-        createdAt: item.createdAt || item.created_at,
-        allocatedAt,
-      })
-    }
+    // Execute all allocations atomically
+    await this.db.batch(batch)
 
-    return allocated
+    // Return allocated items
+    return available.slice(0, quantity).map(item => ({
+      id: item.id,
+      productId: item.productId || item.product_id,
+      licenseCode: item.licenseCode || item.license_code,
+      password: item.password || null,
+      orderId,
+      createdAt: item.createdAt || item.created_at,
+      allocatedAt,
+    }))
   }
 
   async addItems(
