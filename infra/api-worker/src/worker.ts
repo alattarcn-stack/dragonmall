@@ -6,28 +6,8 @@
 import app from './index'
 import { initSentry, isSentryEnabled } from './utils/sentry'
 import type { Env } from './types'
+import { validateEnv, EnvValidationError } from './utils/env-validation'
 import * as Sentry from '@sentry/cloudflare-workers'
-
-/**
- * Validate critical environment variables at startup
- * Throws an error if validation fails, causing the worker to fail fast
- */
-function validateEnvironment(env: Env): void {
-  // Validate JWT_SECRET - critical for authentication
-  if (!env.JWT_SECRET) {
-    throw new Error(
-      'JWT_SECRET is required but not set. ' +
-      'Please set JWT_SECRET in your environment variables (minimum 32 characters).'
-    )
-  }
-
-  if (env.JWT_SECRET.length < 32) {
-    throw new Error(
-      `JWT_SECRET must be at least 32 characters long, but got ${env.JWT_SECRET.length} characters. ` +
-      'Please set a longer JWT_SECRET in your environment variables.'
-    )
-  }
-}
 
 // Initialize Sentry on module load (for production)
 // Note: env is not available at module load, so we initialize per request
@@ -35,11 +15,11 @@ function validateEnvironment(env: Env): void {
 // Export the fetch handler wrapped with Sentry
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
-    // Validate critical environment variables at startup (fail fast)
+    // Validate all required environment variables at startup (fail fast)
     // This runs on every request, but it's a fast check and ensures we fail immediately
     // if the environment is misconfigured
     try {
-      validateEnvironment(env)
+      validateEnv(env)
     } catch (error) {
       // Log the error and return a 500 response
       console.error('Environment validation failed:', error)
@@ -50,12 +30,18 @@ export default {
       const responseBody: {
         error: string
         message?: string
+        missingVars?: string[]
       } = {
         error: 'CONFIGURATION_ERROR',
       }
       
-      if (!isProd && error instanceof Error) {
-        responseBody.message = error.message
+      if (!isProd) {
+        if (error instanceof EnvValidationError) {
+          responseBody.message = error.message
+          responseBody.missingVars = error.missingVars
+        } else if (error instanceof Error) {
+          responseBody.message = error.message
+        }
       }
       
       return new Response(
