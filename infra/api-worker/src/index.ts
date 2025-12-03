@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { Env } from './types'
-import { publicAuth, adminAuth, customerAuth } from './middleware/auth'
+import { publicAuth, adminAuth, customerAuth, optionalAuth } from './middleware/auth'
 import { securityHeaders } from './middleware/security-headers'
 import { csrfProtection } from './middleware/csrf'
 import { requestIdMiddleware } from './middleware/request-id'
@@ -71,7 +71,8 @@ app.post('/api/orders', csrfProtection, async (c) => {
 })
 
 // Orders API - Get by ID (admin or authenticated user)
-app.use('/api/orders/:id', adminAuth)
+// Use optionalAuth to allow both admin and customer tokens, then check authorization in route
+app.use('/api/orders/:id', optionalAuth)
 app.get('/api/orders/:id', async (c) => {
   const router = createOrdersRouter(c.env)
   return router.fetch(c.req.raw, c.env, c.executionCtx)

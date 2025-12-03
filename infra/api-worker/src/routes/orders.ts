@@ -58,7 +58,7 @@ export function createOrdersRouter(env: Env) {
     }
   })
 
-  // Get order by ID (admin or authenticated user)
+  // Get order by ID (admin or authenticated user who owns the order)
   router.get('/:id', async (c) => {
     try {
       const id = parseInt(c.req.param('id'), 10)
@@ -66,13 +66,26 @@ export function createOrdersRouter(env: Env) {
         return c.json({ error: 'Invalid order ID' }, 400)
       }
 
+      // Get user info from context (set by auth middleware)
+      const userId = c.get('userId')
+      const isAdmin = c.get('isAdmin') || false
+      const role = c.get('role')
+
+      // Require authentication (either admin or customer)
+      if (!userId || (!isAdmin && role !== 'customer')) {
+        return c.json({ error: 'Unauthorized' }, 401)
+      }
+
+      // Fetch the order
       const order = await orderService.getById(id)
       if (!order) {
         return c.json({ error: 'Order not found' }, 404)
       }
 
-      // TODO: Check if user is admin or order owner
-      // For now, allow access (will be secured by auth middleware)
+      // Authorization check: admin can access any order, customer can only access their own
+      if (!isAdmin && order.userId !== userId) {
+        return c.json({ error: 'Forbidden' }, 403)
+      }
 
       // Get order items
       const orderItems = await orderService.getOrderItems(id)
