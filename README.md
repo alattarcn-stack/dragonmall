@@ -349,6 +349,17 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for detailed manual deployment instructio
 3. Deploy Next.js apps to Cloudflare Pages (via GitHub integration or CLI)
 4. Configure environment variables in Cloudflare Dashboard
 
+### ⚠️ Troubleshooting: Cloudflare Pages Deployment
+
+If you see this error:
+```
+✘ [ERROR] Missing entry-point to Worker script or to assets directory
+```
+
+**Fix**: Remove the "Deploy command" from your Cloudflare Pages project settings. Pages automatically deploys the build output - no deploy command needed!
+
+See [`FIX_PAGES_DEPLOY.md`](./FIX_PAGES_DEPLOY.md) for detailed instructions.
+
 ## Documentation
 
 ### Getting Started
