@@ -26,9 +26,43 @@ app.use('/*', requestIdMiddleware)
 // Security headers middleware (applied globally)
 app.use('/*', securityHeaders)
 
-// CORS middleware
+// CORS middleware - Environment-driven configuration
+// Build allowed origins from environment variables + localhost for development
+function getAllowedOrigins(env: Env): string[] {
+  const origins: string[] = []
+  
+  // Always allow localhost for development
+  origins.push('http://localhost:3000', 'http://localhost:3001')
+  
+  // Add production URLs from environment variables
+  if (env.FRONTEND_URL) {
+    origins.push(env.FRONTEND_URL)
+  }
+  
+  if (env.ADMIN_URL) {
+    origins.push(env.ADMIN_URL)
+  }
+  
+  return origins
+}
+
 app.use('/*', cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001'],
+  origin: (origin, c) => {
+    const allowedOrigins = getAllowedOrigins(c.env)
+    
+    // Allow requests with no origin (e.g., curl, server-to-server, Postman)
+    if (!origin) {
+      return true
+    }
+    
+    // Check if origin is in allowed list
+    if (allowedOrigins.includes(origin)) {
+      return true
+    }
+    
+    // Reject all other origins
+    return false
+  },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
   credentials: true,

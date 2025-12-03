@@ -148,11 +148,22 @@ These are set in `wrangler.toml` under `[vars]` or in the Cloudflare Dashboard:
 - **Example**: `"production"`
 
 #### FRONTEND_URL
-- **Purpose**: Base URL of the frontend application (for CORS)
-- **Required**: No (default: "http://localhost:3000")
-- **Format**: String (URL)
+- **Purpose**: Base URL of the storefront application (for CORS)
+- **Required**: Yes (for production)
+- **Format**: String (URL, must include protocol: https://)
 - **Set in**: `wrangler.toml` or Cloudflare Dashboard
 - **Example**: `"https://store.dragonstation.com"`
+- **CORS**: This URL is automatically added to allowed CORS origins
+- **Note**: `http://localhost:3000` is always allowed for development
+
+#### ADMIN_URL
+- **Purpose**: Base URL of the admin panel application (for CORS)
+- **Required**: Yes (for production)
+- **Format**: String (URL, must include protocol: https://)
+- **Set in**: `wrangler.toml` or Cloudflare Dashboard
+- **Example**: `"https://admin.dragonstation.com"`
+- **CORS**: This URL is automatically added to allowed CORS origins
+- **Note**: `http://localhost:3001` is always allowed for development
 
 ## Cloudflare Pages (apps/store & apps/admin)
 

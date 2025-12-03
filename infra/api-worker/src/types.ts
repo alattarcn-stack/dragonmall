@@ -5,7 +5,8 @@ export interface Env {
   KV_SESSIONS: KVNamespace
   QUEUE_WEBHOOKS: Queue
   ENVIRONMENT?: string
-  FRONTEND_URL?: string
+  FRONTEND_URL?: string // Storefront URL (e.g., https://store.example.com)
+  ADMIN_URL?: string // Admin panel URL (e.g., https://admin.example.com)
   
   // Stripe
   STRIPE_SECRET_KEY?: string

@@ -156,9 +156,20 @@ EMAIL_PROVIDER=resend
 EMAIL_API_KEY=re_...
 EMAIL_FROM=noreply@example.com
 FRONTEND_BASE_URL=http://localhost:3000
+# CORS Configuration (production only - localhost is always allowed)
+# FRONTEND_URL=https://store.example.com
+# ADMIN_URL=https://admin.example.com
 ```
 
 See [`infra/ENVIRONMENT.md`](./infra/ENVIRONMENT.md) for complete environment variable documentation.
+
+**CORS Configuration**: The API automatically allows requests from:
+- `http://localhost:3000` and `http://localhost:3001` (always allowed for development)
+- `FRONTEND_URL` (if set) - Your production storefront URL
+- `ADMIN_URL` (if set) - Your production admin panel URL
+- Requests with no Origin header (server-to-server, curl, Postman)
+
+Set `FRONTEND_URL` and `ADMIN_URL` in production to enable CORS for your deployed frontends.
 
 3. **Run Database Migrations**
 
