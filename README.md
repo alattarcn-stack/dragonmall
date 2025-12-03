@@ -30,13 +30,18 @@ A modern, production-ready e-commerce platform for selling digital products, lic
 ### Security & Infrastructure
 - **Authentication**: JWT-based auth with HTTP-only cookies (admin & customer)
 - **Password Security**: bcrypt password hashing with salt rounds
-- **Rate Limiting**: Login attempt throttling via Cloudflare KV
+- **Rate Limiting**: Login attempt throttling via Cloudflare KV (IP hashing, namespaced keys)
 - **CSRF Protection**: X-Requested-With header validation
 - **Security Headers**: X-Content-Type-Options, X-Frame-Options, CSP, etc.
 - **Input Validation**: Zod schema validation on all API endpoints
-- **File Upload Validation**: MIME type and size restrictions
+- **File Upload Validation**: MIME type and size restrictions, dangerous extension blocking
+- **XSS Protection**: HTML sanitization for user-generated content
+- **Request Size Limits**: 5MB JSON, 10MB form data (configurable)
+- **Environment Validation**: Comprehensive startup validation of all required env vars
+- **Audit Logging**: Comprehensive logging of sensitive operations (orders, refunds, admin changes)
 - **Error Tracking**: Sentry integration for monitoring
 - **Email Notifications**: Order confirmations, password resets, support replies
+- **Health Check**: `/health` and `/api/health` endpoints with component status
 
 ## Architecture
 
@@ -346,26 +351,61 @@ See [`DEPLOYMENT.md`](./DEPLOYMENT.md) for detailed manual deployment instructio
 
 ## Documentation
 
+### Getting Started
 - [`QUICKSTART.md`](./QUICKSTART.md) - Quick start guide for local development
-- [`infra/ENVIRONMENT.md`](./infra/ENVIRONMENT.md) - Environment variables reference
 - [`DEPLOYMENT.md`](./DEPLOYMENT.md) - Production deployment guide
-- [`TESTING.md`](./TESTING.md) - Testing guide
+
+### Configuration
+- [`infra/ENVIRONMENT.md`](./infra/ENVIRONMENT.md) - Complete environment variables reference
+- [`infra/PAYMENT_SETUP.md`](./infra/PAYMENT_SETUP.md) - Stripe and PayPal setup guide
+- [`EMAIL.md`](./EMAIL.md) - Email provider configuration
+
+### Development
+- [`TESTING.md`](./TESTING.md) - Testing guide and test structure
 - [`infra/db/README.md`](./infra/db/README.md) - Database setup and migrations
 - [`MONITORING.md`](./MONITORING.md) - Sentry monitoring setup
-- [`EMAIL.md`](./EMAIL.md) - Email configuration
+
+### Package Documentation
+- [`packages/core/README.md`](./packages/core/README.md) - Core services and types
+- [`infra/api-worker/README.md`](./infra/api-worker/README.md) - API worker documentation
+- [`infra/README.md`](./infra/README.md) - Infrastructure overview
 
 ## Project Status
 
-✅ **Production Ready** - Core features implemented and tested:
-- Authentication & authorization
+✅ **Production Ready** - All core features implemented, tested, and hardened:
+
+### Core Features ✅
+- Authentication & authorization (JWT, role-based access control)
 - Product management & inventory
 - Shopping cart & checkout
-- Payment processing (Stripe/PayPal)
+- Payment processing (Stripe/PayPal with webhook verification)
 - Coupons & discounts
-- Refunds
+- Refunds with automatic download revocation
 - Analytics dashboard
 - Email notifications
-- Security hardening
+- Support ticket system
+
+### Security Features ✅
+- Comprehensive input validation (Zod schemas)
+- XSS protection (HTML sanitization)
+- Request size limits
+- Rate limiting with IP hashing
+- CSRF protection
+- Security headers
+- File upload validation
+- Environment variable validation at startup
+- Audit logging for sensitive operations
+- Password reset token expiry enforcement
+- Cart token verification with expiration
+- Transaction-like patterns for multi-step DB operations
+- Payment amount validation (never trust client input)
+
+### Infrastructure ✅
+- Health check endpoints (`/health`, `/api/health`)
+- Comprehensive error handling with standardized format
+- Pagination for admin list endpoints
+- Request ID tracking
+- Sentry error monitoring
 
 ## License
 

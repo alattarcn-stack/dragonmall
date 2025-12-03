@@ -92,13 +92,81 @@ Comprehensive security improvements have been successfully implemented across Dr
 
 **Database**: File metadata (size, MIME type) stored in `product_files` table
 
-### 4. CSRF Protection
-
-**Location**: `infra/api-worker/src/middleware/csrf.ts`
-
-**Protection Method**: 
-- Requires `X-Requested-With: XMLHttpRequest` header for state-changing requests
+### 4. CSRF Protection ✅
+- **X-Requested-With header** required for state-changing requests
 - Applied to: POST, PUT, PATCH, DELETE methods
+- **Webhooks excluded** (called by external services)
+- Frontend automatically includes header
+- **Location**: `infra/api-worker/src/middleware/csrf.ts`
+
+### 5. XSS Protection ✅
+- **HTML sanitization** for user-generated content
+- User content: Strip all HTML, escape entities
+- Admin content: Whitelist safe HTML tags, remove dangerous tags/attributes
+- Applied to: Support tickets, product descriptions, category descriptions
+- **Location**: `infra/api-worker/src/utils/sanitize.ts`
+
+### 6. Request Size Limits ✅
+- **JSON body limit**: 5MB (configurable)
+- **Form data limit**: 10MB (configurable)
+- **File upload endpoints**: Exempt (have own validation)
+- Returns 413 Payload Too Large when exceeded
+- **Location**: `infra/api-worker/src/middleware/request-size-limit.ts`
+
+### 7. Environment Variable Validation ✅
+- **Comprehensive startup validation** of all required env vars
+- Validates: JWT_SECRET, Stripe config, PayPal config, Email config, Production URLs
+- Clear error messages with missing variable list
+- Fails fast if misconfigured
+- **Location**: `infra/api-worker/src/utils/env-validation.ts`
+
+### 8. Audit Logging ✅
+- **Comprehensive logging** of sensitive operations
+- Tracks: Order status changes, refunds, admin account changes
+- Includes: requestId, actorId, action type, target entity, metadata
+- **Location**: `infra/api-worker/src/utils/audit-log.ts`
+
+### 9. Standardized Error Responses ✅
+- **Consistent error format** across all endpoints
+- Format: `{ error: "ERROR_CODE", message: "...", details: {...} }`
+- Environment-aware message exposure (generic in production)
+- **Location**: `infra/api-worker/src/utils/errors.ts`
+
+### 10. Password Reset Token Security ✅
+- **Expiry enforcement**: Tokens expire after set time
+- **One-time use**: Tokens marked as used after successful reset
+- **Token invalidation**: All other tokens for user invalidated on reset
+- **Location**: `infra/api-worker/src/routes/password-reset.ts`
+
+### 11. Cart Token Security ✅
+- **JWT expiration**: 30-day expiration enforced
+- **Database validation**: Verifies cart exists and is active
+- **Auto-cleanup**: Expired/invalid tokens trigger new cart creation
+- **Location**: `infra/api-worker/src/utils/cart.ts`
+
+### 12. Transaction-like DB Operations ✅
+- **Atomic operations** using D1 batch API
+- **Rollback on failure**: Manual cleanup for dependent operations
+- Applied to: Order creation, fulfillment, refunds, inventory allocation
+- **Location**: `packages/core/src/services/order.service.ts`, `packages/core/src/services/inventory.service.ts`
+
+### 13. Payment Amount Validation ✅
+- **Authoritative amounts**: Always fetch from database, never trust client
+- **Webhook validation**: Re-check amounts in webhook handlers
+- **Location**: `infra/api-worker/src/routes/payments.ts`, `packages/core/src/services/payment.service.ts`
+
+### 14. Rate Limiting Improvements ✅
+- **IP normalization**: Strip whitespace, lowercase
+- **IP hashing**: SHA-256 hash for privacy
+- **Namespaced keys**: `rl:login:{ipHash}` format
+- **Prevents collisions**: Different limit types use different prefixes
+- **Location**: `infra/api-worker/src/utils/rate-limit.ts`
+
+### 15. File Upload Hardening ✅
+- **Strict MIME type validation**: Rejects empty/missing MIME types in production
+- **Dangerous extension blocking**: Always rejects .exe, .bat, .js, etc.
+- **Environment-aware**: Warnings in development, strict in production
+- **Location**: `infra/api-worker/src/utils/file-upload.ts`
 
 **Routes Protected**:
 - ✅ `POST /api/orders` - Order creation
