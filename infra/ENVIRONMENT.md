@@ -58,7 +58,17 @@ These must be set using `wrangler secret put` (they are encrypted and not visibl
 - **Where to get**: PayPal Developer Dashboard → My Apps & Credentials → App → Secret
 - **Where to configure**: Cloudflare Dashboard → Workers → dragon-station-2026-api → Settings → Variables → Secrets
 
-**Note**: PayPal webhook verification is handled via the PayPal SDK using the client credentials. No separate webhook secret is required.
+#### PAYPAL_WEBHOOK_ID
+- **Purpose**: PayPal webhook ID for webhook signature verification
+- **Required**: Yes (if using PayPal webhooks)
+- **Format**: String (webhook ID from PayPal dashboard)
+- **Set via**: `wrangler secret put PAYPAL_WEBHOOK_ID`
+- **Where to get**: 
+  1. Go to PayPal Developer Dashboard → My Apps & Credentials
+  2. Select your app → Webhooks section
+  3. Click on your webhook → Copy the Webhook ID
+- **Where to configure**: Cloudflare Dashboard → Workers → dragon-station-2026-api → Settings → Variables → Secrets
+- **Security**: Required for verifying that webhook requests are actually from PayPal. Without this, fake webhook requests could mark orders as paid.
 
 ### Optional Secrets
 

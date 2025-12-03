@@ -4,6 +4,7 @@ import { PaymentService, OrderService, InventoryService, DownloadService, Produc
 import { StripeCreateIntentSchema, PayPalCreateOrderSchema, formatValidationError } from '../validation/schemas'
 import { sendOrderConfirmationEmail } from '../utils/email'
 import { logError, logInfo } from '../utils/logging'
+import { verifyPayPalWebhook, extractPayPalHeaders } from '../utils/paypal-webhook'
 import Stripe from 'stripe'
 import paypal from '@paypal/checkout-server-sdk'
 
@@ -359,8 +360,49 @@ export function createPaymentsRouter(env: Env) {
         return c.json({ error: 'PayPal not configured' }, 500)
       }
 
-      const body = await c.req.json()
+      // Verify webhook signature
+      if (!env.PAYPAL_WEBHOOK_ID) {
+        logError('PayPal webhook ID not configured', {})
+        return c.json({ error: 'Webhook verification not configured' }, 500)
+      }
+
+      if (!env.PAYPAL_CLIENT_ID || !env.PAYPAL_CLIENT_SECRET) {
+        logError('PayPal credentials not configured for webhook verification', {})
+        return c.json({ error: 'PayPal credentials not configured' }, 500)
+      }
+
+      // Get raw body as text (required for signature verification)
+      const rawBody = await c.req.text()
+      
+      // Extract PayPal webhook headers
+      const paypalHeaders = extractPayPalHeaders(c.req.raw.headers)
+      
+      // Verify webhook signature using PayPal's verification API
+      const isProduction = env.ENVIRONMENT === 'production'
+      const isValid = await verifyPayPalWebhook(
+        rawBody,
+        paypalHeaders as any,
+        env.PAYPAL_WEBHOOK_ID,
+        env.PAYPAL_CLIENT_ID,
+        env.PAYPAL_CLIENT_SECRET,
+        isProduction
+      )
+
+      if (!isValid) {
+        logError('PayPal webhook signature verification failed', {
+          transmissionId: paypalHeaders['paypal-transmission-id'],
+        })
+        return c.json({ error: 'Invalid webhook signature' }, 401)
+      }
+
+      // Parse body as JSON after verification
+      const body = JSON.parse(rawBody)
       const eventType = body.event_type
+
+      logInfo('PayPal webhook received', {
+        eventType,
+        transmissionId: paypalHeaders['paypal-transmission-id'],
+      })
 
       // Handle payment capture events
       if (eventType === 'PAYMENT.CAPTURE.COMPLETED') {
@@ -383,13 +425,25 @@ export function createPaymentsRouter(env: Env) {
 
             // Fulfill order
             await fulfillOrder(payment.orderId)
+
+            logInfo('PayPal payment processed successfully', {
+              paymentId: payment.id,
+              orderId: payment.orderId,
+            })
+          } else {
+            logError('PayPal payment not found for order ID', {
+              paypalOrderId,
+            })
           }
         }
       }
 
       return c.json({ received: true })
     } catch (error: any) {
-      console.error('Error processing PayPal webhook:', error)
+      logError('Error processing PayPal webhook', {
+        error: error.message,
+        stack: error.stack,
+      })
       return c.json({ 
         error: 'Webhook processing failed',
         message: env.ENVIRONMENT === 'development' ? error.message : undefined

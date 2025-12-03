@@ -16,6 +16,7 @@ export interface Env {
   // PayPal
   PAYPAL_CLIENT_ID?: string
   PAYPAL_CLIENT_SECRET?: string
+  PAYPAL_WEBHOOK_ID?: string // PayPal webhook ID for signature verification
   
   // JWT
   JWT_SECRET?: string
