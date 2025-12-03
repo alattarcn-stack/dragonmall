@@ -581,7 +581,7 @@ export function createPaymentsRouter(env: Env) {
             const paidOrder = await orderService.markPaid(payment.orderId)
 
             // Audit log: Order paid (system action from webhook)
-            const captureAmountCents = Math.round(parseFloat(resource.amount.value || '0') * 100)
+            // captureAmountCents already calculated above
             logOrderPaid(
               payment.orderId,
               payment.id,

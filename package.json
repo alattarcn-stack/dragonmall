@@ -4,7 +4,8 @@
   "private": true,
   "workspaces": [
     "apps/*",
-    "packages/*"
+    "packages/*",
+    "infra/api-worker"
   ],
   "scripts": {
     "dev:store": "next dev --dir apps/store -p 3000",
@@ -23,17 +24,19 @@
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
-    "typescript": "^5.3.3",
-    "eslint": "^8.55.0",
     "@typescript-eslint/eslint-plugin": "^6.15.0",
     "@typescript-eslint/parser": "^6.15.0",
+    "@vitest/coverage-v8": "^1.2.0",
+    "eslint": "^8.55.0",
     "tsx": "^4.7.0",
-    "wrangler": "^3.19.0",
+    "typescript": "^5.3.3",
     "vitest": "^1.2.0",
-    "@vitest/coverage-v8": "^1.2.0"
+    "wrangler": "^4.51.0"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@sentry/cloudflare": "^10.28.0"
   }
 }
-

@@ -7,7 +7,7 @@ import app from './index'
 import { initSentry, isSentryEnabled } from './utils/sentry'
 import type { Env } from './types'
 import { validateEnv, EnvValidationError } from './utils/env-validation'
-import * as Sentry from '@sentry/cloudflare-workers'
+import * as Sentry from '@sentry/cloudflare'
 
 // Initialize Sentry on module load (for production)
 // Note: env is not available at module load, so we initialize per request

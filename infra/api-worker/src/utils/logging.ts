@@ -25,7 +25,7 @@ export function logInfo(message: string, meta?: LogMeta, env?: Env): void {
   
   // In production, send to Sentry as breadcrumb
   if (env && isSentryEnabled(env)) {
-    import('@sentry/cloudflare-workers').then((Sentry) => {
+    import('@sentry/cloudflare').then((Sentry) => {
       Sentry.addBreadcrumb({
         message,
         level: 'info',
@@ -55,7 +55,7 @@ export function logError(message: string, error?: Error | unknown, meta?: LogMet
   
   // In production, send to Sentry
   if (env && isSentryEnabled(env)) {
-    import('@sentry/cloudflare-workers').then((Sentry) => {
+    import('@sentry/cloudflare').then((Sentry) => {
       if (error instanceof Error) {
         Sentry.captureException(error, {
           extra: meta,
@@ -87,7 +87,7 @@ export function logWarn(message: string, meta?: LogMeta, env?: Env): void {
   console.warn('[WARN]', logData)
   
   if (env && isSentryEnabled(env)) {
-    import('@sentry/cloudflare-workers').then((Sentry) => {
+    import('@sentry/cloudflare').then((Sentry) => {
       Sentry.addBreadcrumb({
         message,
         level: 'warning',

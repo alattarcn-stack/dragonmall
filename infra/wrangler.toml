@@ -3,7 +3,8 @@
 
 name = "dragon-station-2026-api"
 main = "api-worker/src/worker.ts"
-compatibility_date = "2024-01-01"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
 
 # Production Routes
 # Configure your custom domain here (optional)
@@ -35,8 +36,7 @@ routes = [
 [[d1_databases]]
 binding = "D1_DATABASE"
 database_name = "dragon-station-db"
-database_id = "" # REQUIRED: Set after running `wrangler d1 create dragon-station-db`
-# preview_database_id = "" # Optional: For local development, copy from create command output
+database_id = "73e9ad9d-f7bd-4a76-93bd-c6d2b85343d6"
 
 # ============================================================================
 # R2 BUCKET BINDING
@@ -51,9 +51,10 @@ database_id = "" # REQUIRED: Set after running `wrangler d1 create dragon-statio
 # To list existing buckets:
 #   wrangler r2 bucket list
 #
-[[r2_buckets]]
-binding = "R2_BUCKET"
-bucket_name = "dragon-station-assets"
+# R2 bucket - uncomment after enabling R2 in Cloudflare Dashboard
+# [[r2_buckets]]
+# binding = "R2_BUCKET"
+# bucket_name = "dragon-station-assets"
 
 # ============================================================================
 # KV NAMESPACE BINDING
@@ -73,8 +74,8 @@ bucket_name = "dragon-station-assets"
 #
 [[kv_namespaces]]
 binding = "KV_SESSIONS"
-id = "" # REQUIRED: Set after running `wrangler kv:namespace create KV_SESSIONS`
-preview_id = "" # Optional: For local development, set after running with --preview flag
+id = "d859130e3ef84757b28cac05678b3d53"
+preview_id = "2515dae3e78e4c7593e72cafb7aaaaca"
 
 # ============================================================================
 # QUEUE BINDING
@@ -90,9 +91,9 @@ preview_id = "" # Optional: For local development, set after running with --prev
 # To list existing queues:
 #   wrangler queues list
 #
-[[queues]]
-binding = "QUEUE_WEBHOOKS"
-queue = "webhook-queue"
+# Queue configuration - queues are automatically bound when created
+# No explicit configuration needed in wrangler.toml for queues
+# The queue will be available via the binding name when deployed
 
 # ============================================================================
 # ENVIRONMENT VARIABLES

@@ -15,12 +15,12 @@
     "jose": "^5.2.0",
     "bcryptjs": "^2.4.3",
     "zod": "^3.22.4",
-    "@sentry/cloudflare-workers": "^7.91.0"
+    "@sentry/cloudflare": "^10.28.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20231218.0",
     "typescript": "^5.3.3",
-    "wrangler": "^3.19.0",
+    "wrangler": "^4.51.0",
     "@types/bcryptjs": "^2.4.6",
     "vitest": "^1.2.0"
   }

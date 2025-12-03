@@ -465,7 +465,7 @@ app.onError(async (err, c) => {
   // Add context to Sentry if available
   const { isSentryEnabled } = await import('./utils/sentry')
   if (isSentryEnabled(c.env)) {
-    const Sentry = await import('@sentry/cloudflare-workers')
+    const Sentry = await import('@sentry/cloudflare')
     Sentry.setTag('route', c.req.path)
     Sentry.setTag('method', c.req.method)
     if (userId) {

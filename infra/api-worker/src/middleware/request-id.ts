@@ -24,7 +24,7 @@ export async function requestIdMiddleware(c: Context<{ Bindings: Env }>, next: N
   
   // Add to Sentry context if available
   if (isSentryEnabled(c.env)) {
-    import('@sentry/cloudflare-workers').then((Sentry) => {
+    import('@sentry/cloudflare').then((Sentry) => {
       Sentry.setTag('request_id', requestId)
       Sentry.setContext('request', {
         id: requestId,

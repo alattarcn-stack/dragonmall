@@ -1,4 +1,4 @@
-import * as Sentry from '@sentry/cloudflare-workers'
+import * as Sentry from '@sentry/cloudflare'
 import type { Env } from '../types'
 
 // Global Sentry instance (initialized once)

@@ -2,7 +2,11 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "jsx": "preserve",
-    "lib": ["dom", "dom.iterable", "esnext"],
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "esnext"
+    ],
     "module": "esnext",
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
@@ -15,12 +19,25 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"],
-      "@dragon/api": ["../../packages/api/src"],
-      "@dragon/core": ["../../packages/core/src"]
-    }
+      "@/*": [
+        "./src/*"
+      ],
+      "@dragon/api": [
+        "../../packages/api/src"
+      ],
+      "@dragon/core": [
+        "../../packages/core/src"
+      ]
+    },
+    "noEmit": true
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
-  "exclude": ["node_modules"]
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }
-
