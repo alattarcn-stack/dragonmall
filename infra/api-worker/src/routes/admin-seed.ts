@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { Env } from '../types'
 import { UserService } from '@dragon/core'
 import { hashPassword } from '../utils/password'
+import { makeError, ErrorCodes } from '../utils/errors'
 
 /**
  * Development-only route to seed an initial admin user
@@ -22,7 +23,7 @@ export function createAdminSeedRouter(env: Env) {
   router.post('/seed', async (c) => {
     // Defense in depth: Double-check production (should never reach here in production)
     if (env.ENVIRONMENT === 'production') {
-      return c.json({ error: 'Not available in production' }, 403)
+      return c.json(makeError(ErrorCodes.FORBIDDEN, 'Not available in production'), 403)
     }
 
     // Defense in depth: Double-check SEED_SECRET is configured
@@ -78,10 +79,7 @@ export function createAdminSeedRouter(env: Env) {
       // Check if admin already exists
       const existing = await userService.getByEmail(email)
       if (existing) {
-        return c.json({ 
-          error: 'Admin user already exists',
-          message: 'Use the login endpoint instead'
-        }, 400)
+        return c.json(makeError(ErrorCodes.CONFLICT, 'Admin user already exists', { message: 'Use the login endpoint instead' }), 400)
       }
 
       // Hash password
@@ -115,10 +113,11 @@ export function createAdminSeedRouter(env: Env) {
       })
     } catch (error: any) {
       console.error('Seed error:', error)
-      return c.json({ 
-        error: 'Failed to create admin user',
-        message: env.ENVIRONMENT === 'development' ? error.message : undefined
-      }, 500)
+      return c.json(makeError(
+        ErrorCodes.INTERNAL_ERROR,
+        'Failed to create admin user',
+        env.ENVIRONMENT === 'development' ? { originalError: error.message } : undefined
+      ), 500)
     }
   })
 

@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import type { Env } from '../types'
 import { CategoryService } from '@dragon/core'
+import { makeError, ErrorCodes } from '../utils/errors'
 
 export function createCategoriesRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -22,7 +23,7 @@ export function createCategoriesRouter(env: Env) {
       return c.json({ data: publicCategories })
     } catch (error) {
       console.error('Error listing categories:', error)
-      return c.json({ error: 'Failed to list categories' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to list categories'), 500)
     }
   })
 

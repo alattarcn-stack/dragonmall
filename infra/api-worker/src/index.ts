@@ -465,7 +465,7 @@ app.onError(async (err, c) => {
     error: string
     requestId?: string
     message?: string
-    stack?: string
+    details?: any
   } = {
     error: 'INTERNAL_ERROR',
     requestId: requestId || undefined,
@@ -477,9 +477,11 @@ app.onError(async (err, c) => {
       responseBody.message = err.message
     }
     
-    // Optionally include trimmed stack trace in development (first 500 chars)
+    // Include trimmed stack trace in development as details
     if (err.stack) {
-      responseBody.stack = err.stack.split('\n').slice(0, 10).join('\n')
+      responseBody.details = {
+        stack: err.stack.split('\n').slice(0, 10).join('\n'),
+      }
     }
   }
   
@@ -488,7 +490,10 @@ app.onError(async (err, c) => {
 
 // 404 handler
 app.notFound((c) => {
-  return c.json({ error: 'Not found' }, 404)
+  return c.json({ 
+    error: 'NOT_FOUND',
+    message: 'The requested resource was not found'
+  }, 404)
 })
 
 export default app

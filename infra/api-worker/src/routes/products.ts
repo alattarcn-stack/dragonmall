@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { Env } from '../types'
 import { ProductService, CategoryService } from '@dragon/core'
 import { ProductListQuerySchema } from '../validation/schemas'
+import { makeError, ErrorCodes } from '../utils/errors'
 
 export function createProductsRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -65,7 +66,7 @@ export function createProductsRouter(env: Env) {
       return c.json({ data: products })
     } catch (error) {
       console.error('Error listing products:', error)
-      return c.json({ error: 'Failed to list products' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to list products'), 500)
     }
   })
 
@@ -76,17 +77,17 @@ export function createProductsRouter(env: Env) {
       const product = await productService.getBySlug(slug)
 
       if (!product) {
-        return c.json({ error: 'Product not found' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Product not found'), 404)
       }
 
       if (!product.isActive) {
-        return c.json({ error: 'Product not available' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Product not available'), 404)
       }
 
       return c.json({ data: product })
     } catch (error) {
       console.error('Error getting product:', error)
-      return c.json({ error: 'Failed to get product' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to get product'), 500)
     }
   })
 

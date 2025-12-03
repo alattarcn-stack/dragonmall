@@ -5,6 +5,7 @@ import { hashPassword } from '../utils/password'
 import { sendPasswordResetEmail } from '../utils/email'
 import { logError, logInfo } from '../utils/logging'
 import { AuthSignupSchema, formatValidationError } from '../validation/schemas'
+import { makeError, ErrorCodes } from '../utils/errors'
 import { z } from 'zod'
 
 // Validation schemas
@@ -92,7 +93,7 @@ export function createPasswordResetRouter(env: Env) {
       }, 200)
     } catch (error) {
       logError('Error requesting password reset', error, {}, env)
-      return c.json({ error: 'Failed to process password reset request' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to process password reset request'), 500)
     }
   })
 
@@ -128,13 +129,13 @@ export function createPasswordResetRouter(env: Env) {
         }>()
 
       if (!tokenResult) {
-        return c.json({ error: 'Invalid or expired reset token' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'Invalid or expired reset token'), 400)
       }
 
       // Get user
       const user = await userService.getById(tokenResult.user_id)
       if (!user || user.isActive === 0) {
-        return c.json({ error: 'User not found or inactive' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'User not found or inactive'), 400)
       }
 
       // Hash new password
@@ -172,7 +173,7 @@ export function createPasswordResetRouter(env: Env) {
       }, 200)
     } catch (error) {
       logError('Error resetting password', error, {}, env)
-      return c.json({ error: 'Failed to reset password' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to reset password'), 500)
     }
   })
 

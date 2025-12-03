@@ -30,7 +30,7 @@ export function createCartRouter(env: Env) {
       const cart = await getCartWithItems(cartId, env)
 
       if (!cart) {
-        return c.json({ error: 'Cart not found' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Cart not found'), 404)
       }
 
       // Generate new cart token for guest users (refresh expiry)
@@ -56,7 +56,7 @@ export function createCartRouter(env: Env) {
       return response
     } catch (error) {
       logError('Error fetching cart', error, {}, env)
-      return c.json({ error: 'Failed to fetch cart' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to fetch cart'), 500)
     }
   })
 
@@ -81,12 +81,12 @@ export function createCartRouter(env: Env) {
       // Verify product exists and is active
       const product = await productService.getById(productId)
       if (!product || product.isActive === 0) {
-        return c.json({ error: 'Product not found or inactive' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Product not found or inactive'), 404)
       }
 
       // Check stock if applicable
       if (product.stock !== null && product.stock < quantity) {
-        return c.json({ error: 'Insufficient stock' }, 400)
+        return c.json(makeError(ErrorCodes.INSUFFICIENT_STOCK, 'Insufficient stock'), 400)
       }
 
       // Get or create cart
@@ -148,7 +148,7 @@ export function createCartRouter(env: Env) {
       return response
     } catch (error) {
       logError('Error adding item to cart', error, {}, env)
-      return c.json({ error: 'Failed to add item to cart' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to add item to cart'), 500)
     }
   })
 
@@ -186,13 +186,13 @@ export function createCartRouter(env: Env) {
         .first<{ id: number; product_id: number }>()
 
       if (!item) {
-        return c.json({ error: 'Item not found in cart' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Item not found in cart'), 404)
       }
 
       // Check product stock if applicable
       const product = await productService.getById(item.product_id)
       if (product && product.stock !== null && product.stock < quantity) {
-        return c.json({ error: 'Insufficient stock' }, 400)
+        return c.json(makeError(ErrorCodes.INSUFFICIENT_STOCK, 'Insufficient stock'), 400)
       }
 
       // Update quantity
@@ -210,7 +210,7 @@ export function createCartRouter(env: Env) {
       return c.json({ data: cart }, 200)
     } catch (error) {
       logError('Error updating cart item', error, {}, env)
-      return c.json({ error: 'Failed to update cart item' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to update cart item'), 500)
     }
   })
 
@@ -239,7 +239,7 @@ export function createCartRouter(env: Env) {
         .first<{ id: number }>()
 
       if (!item) {
-        return c.json({ error: 'Item not found in cart' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Item not found in cart'), 404)
       }
 
       // Delete item
@@ -258,7 +258,7 @@ export function createCartRouter(env: Env) {
       return c.json({ data: cart }, 200)
     } catch (error) {
       logError('Error removing item from cart', error, {}, env)
-      return c.json({ error: 'Failed to remove item from cart' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to remove item from cart'), 500)
     }
   })
 
@@ -281,7 +281,7 @@ export function createCartRouter(env: Env) {
       // Validate customer email (required for checkout)
       const customerEmail = validationResult.data.customerEmail || (userId ? null : undefined)
       if (!customerEmail && !userId) {
-        return c.json({ error: 'Customer email is required for guest checkout' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'Customer email is required for guest checkout'), 400)
       }
 
       // Get cart
@@ -294,11 +294,11 @@ export function createCartRouter(env: Env) {
 
       const cart = await getCartWithItems(cartId, env)
       if (!cart) {
-        return c.json({ error: 'Cart not found' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Cart not found'), 404)
       }
 
       if (cart.items.length === 0) {
-        return c.json({ error: 'Cart is empty' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'Cart is empty'), 400)
       }
 
       // Recalculate total to ensure accuracy (if no coupon applied)
@@ -308,7 +308,7 @@ export function createCartRouter(env: Env) {
       
       const updatedCart = await getCartWithItems(cartId, env)
       if (!updatedCart) {
-        return c.json({ error: 'Cart not found' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Cart not found'), 404)
       }
 
       // Use total_amount if available, otherwise calculate from items
@@ -353,7 +353,7 @@ export function createCartRouter(env: Env) {
       return response
     } catch (error) {
       logError('Error checking out cart', error, {}, env)
-      return c.json({ error: 'Failed to checkout cart' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to checkout cart'), 500)
     }
   })
 
@@ -388,12 +388,12 @@ export function createCartRouter(env: Env) {
       const { cartId } = await getOrCreateCart(userId, cartToken, customerEmail, env)
       const cart = await getCartWithItems(cartId, env)
       if (!cart) {
-        return c.json({ error: 'Cart not found' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Cart not found'), 404)
       }
 
       // Check if cart is empty
       if (!cart.items || cart.items.length === 0) {
-        return c.json({ error: 'Cart is empty' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'Cart is empty'), 400)
       }
 
       // Calculate subtotal from items
@@ -403,7 +403,7 @@ export function createCartRouter(env: Env) {
       const couponService = new CouponService(env.D1_DATABASE)
       const coupon = await couponService.getCouponByCode(code)
       if (!coupon) {
-        return c.json({ error: 'Invalid coupon code' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Invalid coupon code'), 404)
       }
 
       // Create order object for validation
@@ -427,7 +427,7 @@ export function createCartRouter(env: Env) {
       })
 
       if (!validation.valid) {
-        return c.json({ error: validation.reason || 'Coupon is not valid' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, validation.reason || 'Coupon is not valid'), 400)
       }
 
       // Apply coupon
@@ -447,7 +447,7 @@ export function createCartRouter(env: Env) {
       return c.json({ data: updatedCart })
     } catch (error: any) {
       console.error('Error applying coupon:', error)
-      return c.json({ error: 'Failed to apply coupon' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to apply coupon'), 500)
     }
   })
 
@@ -473,7 +473,7 @@ export function createCartRouter(env: Env) {
       const { cartId } = await getOrCreateCart(userId, cartToken, customerEmail, env)
       const cart = await getCartWithItems(cartId, env)
       if (!cart) {
-        return c.json({ error: 'Cart not found' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Cart not found'), 404)
       }
 
       // Recalculate total from items (subtotal = total when no coupon)
@@ -493,7 +493,7 @@ export function createCartRouter(env: Env) {
       return c.json({ data: updatedCart })
     } catch (error: any) {
       console.error('Error removing coupon:', error)
-      return c.json({ error: 'Failed to remove coupon' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to remove coupon'), 500)
     }
   })
 

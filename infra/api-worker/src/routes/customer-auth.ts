@@ -7,6 +7,7 @@ import { checkRateLimit } from '../utils/rate-limit'
 import { AuthSignupSchema, AuthLoginSchema, formatValidationError } from '../validation/schemas'
 import { verifyCartToken, associateCartWithUser } from '../utils/cart'
 import { logInfo } from '../utils/logging'
+import { makeError, ErrorCodes } from '../utils/errors'
 
 export function createCustomerAuthRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -19,7 +20,7 @@ export function createCustomerAuthRouter(env: Env) {
       const { email, password } = body
 
       if (!email || !password) {
-        return c.json({ error: 'Email and password are required' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'Email and password are required'), 400)
       }
 
 
@@ -30,15 +31,13 @@ export function createCustomerAuthRouter(env: Env) {
       
       const ipRateLimit = await checkRateLimit(env.KV_SESSIONS, 'signup', ipAddress, 'ip', 5, 600)
       if (!ipRateLimit.allowed) {
-        return c.json({ 
-          error: 'Too many signup attempts. Please try again later.' 
-        }, 429)
+        return c.json(makeError(ErrorCodes.RATE_LIMIT_EXCEEDED, 'Too many signup attempts. Please try again later.'), 429)
       }
 
       // Check if email already exists
       const existing = await userService.getByEmail(email)
       if (existing) {
-        return c.json({ error: 'Email already registered' }, 400)
+        return c.json(makeError(ErrorCodes.CONFLICT, 'Email already registered'), 400)
       }
 
       // Hash password
@@ -110,7 +109,7 @@ export function createCustomerAuthRouter(env: Env) {
       }, 201)
     } catch (error: any) {
       console.error('Signup error:', error)
-      return c.json({ error: 'Signup failed' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Signup failed'), 500)
     }
   })
 
@@ -134,16 +133,12 @@ export function createCustomerAuthRouter(env: Env) {
       
       const ipRateLimit = await checkRateLimit(env.KV_SESSIONS, 'login', ipAddress, 'ip', 5, 600)
       if (!ipRateLimit.allowed) {
-        return c.json({ 
-          error: 'Too many login attempts. Please try again later.' 
-        }, 429)
+        return c.json(makeError(ErrorCodes.RATE_LIMIT_EXCEEDED, 'Too many login attempts. Please try again later.'), 429)
       }
 
       const emailRateLimit = await checkRateLimit(env.KV_SESSIONS, 'login', email, 'email', 5, 600)
       if (!emailRateLimit.allowed) {
-        return c.json({ 
-          error: 'Too many login attempts. Please try again later.' 
-        }, 429)
+        return c.json(makeError(ErrorCodes.RATE_LIMIT_EXCEEDED, 'Too many login attempts. Please try again later.'), 429)
       }
 
       // Get user by email
@@ -151,12 +146,12 @@ export function createCustomerAuthRouter(env: Env) {
 
       if (!user) {
         // Still consume a rate limit attempt even if user doesn't exist
-        return c.json({ error: 'Invalid credentials' }, 401)
+        return c.json(makeError(ErrorCodes.INVALID_CREDENTIALS, 'Invalid credentials'), 401)
       }
 
       // Check if user is active
       if (user.isActive !== 1) {
-        return c.json({ error: 'Invalid credentials' }, 401)
+        return c.json(makeError(ErrorCodes.INVALID_CREDENTIALS, 'Invalid credentials'), 401)
       }
 
       // Check if user is customer (not admin)
@@ -168,14 +163,14 @@ export function createCustomerAuthRouter(env: Env) {
       const role = userResult?.role || 'customer'
       
       if (role !== 'customer') {
-        return c.json({ error: 'Invalid credentials' }, 401)
+        return c.json(makeError(ErrorCodes.INVALID_CREDENTIALS, 'Invalid credentials'), 401)
       }
 
       // Verify password
       const isValid = await verifyPassword(password, user.passwordHash)
       
       if (!isValid) {
-        return c.json({ error: 'Invalid credentials' }, 401)
+        return c.json(makeError(ErrorCodes.INVALID_CREDENTIALS, 'Invalid credentials'), 401)
       }
 
       // Generate JWT token
@@ -234,7 +229,7 @@ export function createCustomerAuthRouter(env: Env) {
       })
     } catch (error: any) {
       console.error('Login error:', error)
-      return c.json({ error: 'Login failed' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Login failed'), 500)
     }
   })
 

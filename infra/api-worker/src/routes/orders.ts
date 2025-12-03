@@ -2,6 +2,7 @@ import { Hono } from 'hono'
 import type { Env } from '../types'
 import { OrderService, ProductService, InventoryService, DownloadService } from '@dragon/core'
 import { OrderCreateSchema, formatValidationError } from '../validation/schemas'
+import { makeError, ErrorCodes } from '../utils/errors'
 
 export function createOrdersRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -26,26 +27,26 @@ export function createOrdersRouter(env: Env) {
       // Check product exists and is active
       const product = await productService.getById(validatedBody.productId)
       if (!product || !product.isActive) {
-        return c.json({ error: 'Product not found or not available' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Product not found or not available'), 404)
       }
 
       // Validate quantity
       if (validatedBody.quantity < product.minQuantity) {
-        return c.json({ error: `Minimum quantity is ${product.minQuantity}` }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, `Minimum quantity is ${product.minQuantity}`, { minQuantity: product.minQuantity }), 400)
       }
 
       if (product.maxQuantity && validatedBody.quantity > product.maxQuantity) {
-        return c.json({ error: `Maximum quantity is ${product.maxQuantity}` }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, `Maximum quantity is ${product.maxQuantity}`, { maxQuantity: product.maxQuantity }), 400)
       }
 
       // Check stock
       if (product.productType === 'license_code') {
         const availableCount = await inventoryService.getCountByProductId(validatedBody.productId)
         if (availableCount < validatedBody.quantity) {
-          return c.json({ error: 'Insufficient stock' }, 400)
+          return c.json(makeError(ErrorCodes.INSUFFICIENT_STOCK, 'Insufficient stock', { available: availableCount, requested: validatedBody.quantity }), 400)
         }
       } else if (product.stock !== null && product.stock < validatedBody.quantity) {
-        return c.json({ error: 'Insufficient stock' }, 400)
+        return c.json(makeError(ErrorCodes.INSUFFICIENT_STOCK, 'Insufficient stock', { available: product.stock, requested: validatedBody.quantity }), 400)
       }
 
       // Create order
@@ -54,7 +55,7 @@ export function createOrdersRouter(env: Env) {
       return c.json({ data: order }, 201)
     } catch (error) {
       console.error('Error creating order:', error)
-      return c.json({ error: 'Failed to create order' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to create order'), 500)
     }
   })
 
@@ -63,7 +64,7 @@ export function createOrdersRouter(env: Env) {
     try {
       const id = parseInt(c.req.param('id'), 10)
       if (isNaN(id)) {
-        return c.json({ error: 'Invalid order ID' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'Invalid order ID'), 400)
       }
 
       // Get user info from context (set by auth middleware)
@@ -73,18 +74,18 @@ export function createOrdersRouter(env: Env) {
 
       // Require authentication (either admin or customer)
       if (!userId || (!isAdmin && role !== 'customer')) {
-        return c.json({ error: 'Unauthorized' }, 401)
+        return c.json(makeError(ErrorCodes.UNAUTHORIZED, 'Authentication required'), 401)
       }
 
       // Fetch the order
       const order = await orderService.getById(id)
       if (!order) {
-        return c.json({ error: 'Order not found' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Order not found'), 404)
       }
 
       // Authorization check: admin can access any order, customer can only access their own
       if (!isAdmin && order.userId !== userId) {
-        return c.json({ error: 'Forbidden' }, 403)
+        return c.json(makeError(ErrorCodes.FORBIDDEN, 'Access denied'), 403)
       }
 
       // Get order items
@@ -98,7 +99,7 @@ export function createOrdersRouter(env: Env) {
       })
     } catch (error) {
       console.error('Error getting order:', error)
-      return c.json({ error: 'Failed to get order' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to get order'), 500)
     }
   })
 
@@ -107,7 +108,7 @@ export function createOrdersRouter(env: Env) {
     try {
       const id = parseInt(c.req.param('id'), 10)
       if (isNaN(id)) {
-        return c.json({ error: 'Invalid order ID' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'Invalid order ID'), 400)
       }
 
       // Get user info from context (set by auth middleware)
@@ -117,27 +118,24 @@ export function createOrdersRouter(env: Env) {
 
       // Require authentication (either admin or customer)
       if (!userId || (!isAdmin && role !== 'customer')) {
-        return c.json({ error: 'Unauthorized' }, 401)
+        return c.json(makeError(ErrorCodes.UNAUTHORIZED, 'Authentication required'), 401)
       }
 
       // Fetch the order to check authorization and status
       const order = await orderService.getById(id)
       if (!order) {
-        return c.json({ error: 'Order not found' }, 404)
+        return c.json(makeError(ErrorCodes.NOT_FOUND, 'Order not found'), 404)
       }
 
       // Authorization check: admin can mark any order as paid, customer can only mark their own
       if (!isAdmin && order.userId !== userId) {
-        return c.json({ error: 'Forbidden' }, 403)
+        return c.json(makeError(ErrorCodes.FORBIDDEN, 'Access denied'), 403)
       }
 
       // Validate order status - only allow marking pending orders as paid
       // This prevents double-payment or marking already-paid orders
       if (order.status !== 'pending') {
-        return c.json({ 
-          error: 'Invalid order status',
-          message: `Cannot mark order as paid. Current status: ${order.status}. Only pending orders can be marked as paid.`
-        }, 400)
+        return c.json(makeError(ErrorCodes.ORDER_NOT_PENDING, `Cannot mark order as paid. Current status: ${order.status}. Only pending orders can be marked as paid.`, { currentStatus: order.status }), 400)
       }
 
       // Mark order as paid
@@ -169,7 +167,7 @@ export function createOrdersRouter(env: Env) {
       return c.json({ data: updatedOrder })
     } catch (error) {
       console.error('Error marking order as paid:', error)
-      return c.json({ error: 'Failed to mark order as paid' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to mark order as paid'), 500)
     }
   })
 

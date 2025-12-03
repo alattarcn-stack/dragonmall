@@ -5,6 +5,7 @@ import { verifyPassword } from '../utils/password'
 import { signJWT, getJWTSecret, verifyJWT } from '../utils/jwt'
 import { checkRateLimit } from '../utils/rate-limit'
 import { AuthLoginSchema, formatValidationError } from '../validation/schemas'
+import { makeError, ErrorCodes } from '../utils/errors'
 
 export function createAdminAuthRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -30,16 +31,12 @@ export function createAdminAuthRouter(env: Env) {
       
       const ipRateLimit = await checkRateLimit(env.KV_SESSIONS, 'admin-login', ipAddress, 'ip', 5, 600)
       if (!ipRateLimit.allowed) {
-        return c.json({ 
-          error: 'Too many login attempts. Please try again later.' 
-        }, 429)
+        return c.json(makeError(ErrorCodes.RATE_LIMIT_EXCEEDED, 'Too many login attempts. Please try again later.'), 429)
       }
 
       const emailRateLimit = await checkRateLimit(env.KV_SESSIONS, 'admin-login', email, 'email', 5, 600)
       if (!emailRateLimit.allowed) {
-        return c.json({ 
-          error: 'Too many login attempts. Please try again later.' 
-        }, 429)
+        return c.json(makeError(ErrorCodes.RATE_LIMIT_EXCEEDED, 'Too many login attempts. Please try again later.'), 429)
       }
 
       // Get user by email
@@ -48,12 +45,12 @@ export function createAdminAuthRouter(env: Env) {
       if (!user) {
         // Still consume a rate limit attempt even if user doesn't exist
         // This prevents user enumeration attacks
-        return c.json({ error: 'Invalid credentials' }, 401)
+        return c.json(makeError(ErrorCodes.INVALID_CREDENTIALS, 'Invalid credentials'), 401)
       }
 
       // Check if user is active
       if (user.isActive !== 1) {
-        return c.json({ error: 'Invalid credentials' }, 401)
+        return c.json(makeError(ErrorCodes.INVALID_CREDENTIALS, 'Invalid credentials'), 401)
       }
 
       // Check if user is admin - query role from database
@@ -66,14 +63,14 @@ export function createAdminAuthRouter(env: Env) {
       const role = userResult?.role || 'admin'
       
       if (role !== 'admin') {
-        return c.json({ error: 'Invalid credentials' }, 401)
+        return c.json(makeError(ErrorCodes.INVALID_CREDENTIALS, 'Invalid credentials'), 401)
       }
 
       // Verify password
       const isValid = await verifyPassword(password, user.passwordHash)
       
       if (!isValid) {
-        return c.json({ error: 'Invalid credentials' }, 401)
+        return c.json(makeError(ErrorCodes.INVALID_CREDENTIALS, 'Invalid credentials'), 401)
       }
 
       // Generate JWT token
@@ -107,7 +104,7 @@ export function createAdminAuthRouter(env: Env) {
       })
     } catch (error: any) {
       console.error('Login error:', error)
-      return c.json({ error: 'Login failed' }, 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Login failed'), 500)
     }
   })
 
@@ -161,7 +158,7 @@ export function createAdminAuthRouter(env: Env) {
       })
     } catch (error: any) {
       console.error('Auth me error:', error)
-      return c.json({ error: 'Unauthorized' }, 401)
+      return c.json(makeError(ErrorCodes.UNAUTHORIZED, 'Authentication required'), 401)
     }
   })
 

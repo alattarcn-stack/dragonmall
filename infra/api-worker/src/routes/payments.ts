@@ -5,6 +5,7 @@ import { StripeCreateIntentSchema, PayPalCreateOrderSchema, formatValidationErro
 import { sendOrderConfirmationEmail } from '../utils/email'
 import { logError, logInfo } from '../utils/logging'
 import { verifyPayPalWebhook, extractPayPalHeaders } from '../utils/paypal-webhook'
+import { makeError, ErrorCodes } from '../utils/errors'
 import Stripe from 'stripe'
 import paypal from '@paypal/checkout-server-sdk'
 
@@ -172,7 +173,7 @@ export function createPaymentsRouter(env: Env) {
           orderAmount,
           paymentAmount: payment.amount,
         })
-        return c.json({ error: 'Payment amount validation failed' }, 500)
+        return c.json(makeError(ErrorCodes.PAYMENT_AMOUNT_MISMATCH, 'Payment amount validation failed', { orderAmount, paymentAmount: payment.amount }), 500)
       }
 
       // Create Stripe PaymentIntent with authoritative amount from database
@@ -203,10 +204,11 @@ export function createPaymentsRouter(env: Env) {
       })
     } catch (error: any) {
       console.error('Error creating Stripe payment intent:', error)
-      return c.json({ 
-        error: 'Failed to create payment intent',
-        message: env.ENVIRONMENT === 'development' ? error.message : undefined
-      }, 500)
+      return c.json(makeError(
+        ErrorCodes.INTERNAL_ERROR,
+        'Failed to create payment intent',
+        env.ENVIRONMENT === 'development' ? { originalError: error.message } : undefined
+      ), 500)
     }
   })
 
@@ -214,19 +216,19 @@ export function createPaymentsRouter(env: Env) {
   router.post('/stripe/webhook', async (c) => {
     try {
       if (!stripe) {
-        return c.json({ error: 'Stripe not configured' }, 500)
+        return c.json(makeError(ErrorCodes.CONFIGURATION_ERROR, 'Stripe not configured'), 500)
       }
 
       const signature = c.req.header('stripe-signature')
       if (!signature) {
-        return c.json({ error: 'Missing stripe-signature header' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'Missing stripe-signature header'), 400)
       }
 
       const body = await c.req.text()
       const webhookSecret = env.STRIPE_WEBHOOK_SECRET
 
       if (!webhookSecret) {
-        return c.json({ error: 'Stripe webhook secret not configured' }, 500)
+        return c.json(makeError(ErrorCodes.CONFIGURATION_ERROR, 'Stripe webhook secret not configured'), 500)
       }
 
       let event: Stripe.Event
@@ -234,7 +236,7 @@ export function createPaymentsRouter(env: Env) {
         event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
       } catch (err: any) {
         console.error('Webhook signature verification failed:', err.message)
-        return c.json({ error: 'Invalid signature' }, 400)
+        return c.json(makeError(ErrorCodes.BAD_REQUEST, 'Invalid signature'), 400)
       }
 
       // Handle payment intent events
@@ -248,7 +250,7 @@ export function createPaymentsRouter(env: Env) {
           const order = await orderService.getById(orderId)
           if (!order) {
             logError('Order not found for payment intent', { orderId, transactionNumber })
-            return c.json({ error: 'Order not found' }, 404)
+            return c.json(makeError(ErrorCodes.NOT_FOUND, 'Order not found'), 404)
           }
 
           // Get authoritative order amount (total_amount includes discounts)
@@ -262,7 +264,7 @@ export function createPaymentsRouter(env: Env) {
               expectedAmount,
               paymentIntentAmount: paymentIntent.amount,
             })
-            return c.json({ error: 'Payment amount does not match order amount' }, 400)
+            return c.json(makeError(ErrorCodes.PAYMENT_AMOUNT_MISMATCH, 'Payment amount does not match order amount', { expectedAmount, receivedAmount: paymentIntent.amount }), 400)
           }
 
           // Confirm payment
@@ -286,10 +288,11 @@ export function createPaymentsRouter(env: Env) {
       return c.json({ received: true })
     } catch (error: any) {
       console.error('Error processing Stripe webhook:', error)
-      return c.json({ 
-        error: 'Webhook processing failed',
-        message: env.ENVIRONMENT === 'development' ? error.message : undefined
-      }, 500)
+      return c.json(makeError(
+        ErrorCodes.INTERNAL_ERROR,
+        'Webhook processing failed',
+        env.ENVIRONMENT === 'development' ? { originalError: error.message } : undefined
+      ), 500)
     }
   })
 
@@ -297,7 +300,7 @@ export function createPaymentsRouter(env: Env) {
   router.post('/paypal/create-order', async (c) => {
     try {
       if (!paypalClient) {
-        return c.json({ error: 'PayPal not configured' }, 500)
+        return c.json(makeError(ErrorCodes.CONFIGURATION_ERROR, 'PayPal not configured'), 500)
       }
 
       const body = await c.req.json()
@@ -345,7 +348,7 @@ export function createPaymentsRouter(env: Env) {
           orderAmount,
           paymentAmount: payment.amount,
         })
-        return c.json({ error: 'Payment amount validation failed' }, 500)
+        return c.json(makeError(ErrorCodes.PAYMENT_AMOUNT_MISMATCH, 'Payment amount validation failed', { orderAmount, paymentAmount: payment.amount }), 500)
       }
 
       // Create PayPal order with authoritative amount from database
@@ -390,10 +393,11 @@ export function createPaymentsRouter(env: Env) {
       })
     } catch (error: any) {
       console.error('Error creating PayPal order:', error)
-      return c.json({ 
-        error: 'Failed to create PayPal order',
-        message: env.ENVIRONMENT === 'development' ? error.message : undefined
-      }, 500)
+      return c.json(makeError(
+        ErrorCodes.INTERNAL_ERROR,
+        'Failed to create PayPal order',
+        env.ENVIRONMENT === 'development' ? { originalError: error.message } : undefined
+      ), 500)
     }
   })
 
@@ -401,18 +405,18 @@ export function createPaymentsRouter(env: Env) {
   router.post('/paypal/webhook', async (c) => {
     try {
       if (!paypalClient) {
-        return c.json({ error: 'PayPal not configured' }, 500)
+        return c.json(makeError(ErrorCodes.CONFIGURATION_ERROR, 'PayPal not configured'), 500)
       }
 
       // Verify webhook signature
       if (!env.PAYPAL_WEBHOOK_ID) {
         logError('PayPal webhook ID not configured', {})
-        return c.json({ error: 'Webhook verification not configured' }, 500)
+        return c.json(makeError(ErrorCodes.CONFIGURATION_ERROR, 'Webhook verification not configured'), 500)
       }
 
       if (!env.PAYPAL_CLIENT_ID || !env.PAYPAL_CLIENT_SECRET) {
         logError('PayPal credentials not configured for webhook verification', {})
-        return c.json({ error: 'PayPal credentials not configured' }, 500)
+        return c.json(makeError(ErrorCodes.CONFIGURATION_ERROR, 'PayPal credentials not configured'), 500)
       }
 
       // Get raw body as text (required for signature verification)
@@ -436,7 +440,7 @@ export function createPaymentsRouter(env: Env) {
         logError('PayPal webhook signature verification failed', {
           transmissionId: paypalHeaders['paypal-transmission-id'],
         })
-        return c.json({ error: 'Invalid webhook signature' }, 401)
+        return c.json(makeError(ErrorCodes.UNAUTHORIZED, 'Invalid webhook signature'), 401)
       }
 
       // Parse body as JSON after verification
@@ -465,7 +469,7 @@ export function createPaymentsRouter(env: Env) {
                 orderId: payment.orderId,
                 paypalOrderId,
               })
-              return c.json({ error: 'Order not found' }, 404)
+              return c.json(makeError(ErrorCodes.NOT_FOUND, 'Order not found'), 404)
             }
 
             // Get authoritative order amount (total_amount includes discounts)
@@ -483,7 +487,7 @@ export function createPaymentsRouter(env: Env) {
                 captureAmountCents,
                 captureAmount: resource.amount.value,
               })
-              return c.json({ error: 'Payment amount does not match order amount' }, 400)
+              return c.json(makeError(ErrorCodes.PAYMENT_AMOUNT_MISMATCH, 'Payment amount does not match order amount', { expectedAmount, receivedAmount: captureAmountCents }), 400)
             }
 
             // Confirm payment
@@ -516,10 +520,11 @@ export function createPaymentsRouter(env: Env) {
         error: error.message,
         stack: error.stack,
       })
-      return c.json({ 
-        error: 'Webhook processing failed',
-        message: env.ENVIRONMENT === 'development' ? error.message : undefined
-      }, 500)
+      return c.json(makeError(
+        ErrorCodes.INTERNAL_ERROR,
+        'Webhook processing failed',
+        env.ENVIRONMENT === 'development' ? { originalError: error.message } : undefined
+      ), 500)
     }
   })
 
