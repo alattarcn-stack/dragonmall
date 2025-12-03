@@ -320,5 +320,98 @@ describe('CouponService', () => {
       expect(coupon?.usedCount).toBe(1)
     })
   })
+
+  describe('updateCoupon SQL injection protection', () => {
+    it('should ignore malicious column names in input', async () => {
+      // Create coupon using service method
+      const coupon = await service.createCoupon({
+        code: 'SAVE10',
+        type: 'percentage',
+        amount: 10,
+      })
+
+      // Attempt SQL injection via malicious field name
+      const maliciousInput = {
+        code: 'SAVE20',
+        // @ts-expect-error - Testing malicious input that bypasses TypeScript
+        '"; DROP TABLE coupons; --': 'malicious',
+        // @ts-expect-error - Testing malicious input
+        'id = 999; DELETE FROM coupons WHERE': 'malicious',
+        // @ts-expect-error - Testing malicious input
+        'amount = 999; UPDATE coupons SET is_active = 0 WHERE': 'malicious',
+      }
+
+      // Should not throw and should ignore malicious fields
+      const updated = await service.updateCoupon(coupon.id, maliciousInput)
+
+      expect(updated.code).toBe('SAVE20')
+      expect(updated.amount).toBe(10) // Original value, not changed by malicious input
+
+      // Verify coupon still exists (table not dropped)
+      const verifyCoupon = await service.getCouponById(coupon.id)
+      expect(verifyCoupon).not.toBeNull()
+      expect(verifyCoupon?.code).toBe('SAVE20')
+    })
+
+    it('should ignore unexpected keys', async () => {
+      // Create coupon using service method
+      const coupon = await service.createCoupon({
+        code: 'SAVE10',
+        type: 'percentage',
+        amount: 10,
+      })
+
+      // Input with unexpected keys
+      const inputWithUnexpectedKeys = {
+        code: 'SAVE20',
+        // @ts-expect-error - Testing unexpected keys
+        unexpectedField: 'should be ignored',
+        // @ts-expect-error - Testing unexpected keys
+        anotherUnexpectedField: 123,
+      }
+
+      const updated = await service.updateCoupon(coupon.id, inputWithUnexpectedKeys)
+
+      expect(updated.code).toBe('SAVE20')
+      // Other fields should remain unchanged
+      expect(updated.amount).toBe(10)
+    })
+
+    it('should only update whitelisted columns', async () => {
+      // Create coupon using service method
+      const coupon = await service.createCoupon({
+        code: 'SAVE10',
+        type: 'percentage',
+        amount: 10,
+        maxUses: 100,
+      })
+
+      // Update with valid fields
+      const updated = await service.updateCoupon(coupon.id, {
+        code: 'SAVE20',
+        amount: 20,
+        maxUses: 50,
+      })
+
+      expect(updated.code).toBe('SAVE20')
+      expect(updated.amount).toBe(20)
+      expect(updated.maxUses).toBe(50)
+    })
+
+    it('should handle empty input object', async () => {
+      // Create coupon using service method
+      const coupon = await service.createCoupon({
+        code: 'SAVE10',
+        type: 'percentage',
+        amount: 10,
+      })
+
+      // Empty input should return existing coupon
+      const updated = await service.updateCoupon(coupon.id, {})
+
+      expect(updated.code).toBe('SAVE10')
+      expect(updated.amount).toBe(10)
+    })
+  })
 })
 

@@ -322,58 +322,81 @@ export class CouponService {
       throw new Error('Coupon not found')
     }
 
+    // Whitelist of allowed database column names (prevents SQL injection)
+    const allowedColumns = [
+      'code',
+      'type',
+      'amount',
+      'currency',
+      'max_uses',
+      'per_user_limit',
+      'min_order_amount',
+      'starts_at',
+      'ends_at',
+      'is_active',
+    ] as const
+
+    // Map input keys to database column names
+    const columnMap: Record<string, string> = {
+      code: 'code',
+      type: 'type',
+      amount: 'amount',
+      currency: 'currency',
+      maxUses: 'max_uses',
+      perUserLimit: 'per_user_limit',
+      minOrderAmount: 'min_order_amount',
+      startsAt: 'starts_at',
+      endsAt: 'ends_at',
+      isActive: 'is_active',
+    }
+
     const updates: string[] = []
     const values: any[] = []
 
-    if (input.code !== undefined) {
-      updates.push('code = ?')
-      values.push(input.code.toUpperCase().trim())
-    }
-    if (input.type !== undefined) {
-      updates.push('type = ?')
-      values.push(input.type)
-    }
-    if (input.amount !== undefined) {
-      updates.push('amount = ?')
-      values.push(input.amount)
-    }
-    if (input.currency !== undefined) {
-      updates.push('currency = ?')
-      values.push(input.currency)
-    }
-    if (input.maxUses !== undefined) {
-      updates.push('max_uses = ?')
-      values.push(input.maxUses)
-    }
-    if (input.perUserLimit !== undefined) {
-      updates.push('per_user_limit = ?')
-      values.push(input.perUserLimit)
-    }
-    if (input.minOrderAmount !== undefined) {
-      updates.push('min_order_amount = ?')
-      values.push(input.minOrderAmount)
-    }
-    if (input.startsAt !== undefined) {
-      updates.push('starts_at = ?')
-      values.push(input.startsAt)
-    }
-    if (input.endsAt !== undefined) {
-      updates.push('ends_at = ?')
-      values.push(input.endsAt)
-    }
-    if (input.isActive !== undefined) {
-      updates.push('is_active = ?')
-      values.push(input.isActive ? 1 : 0)
+    // Only process input keys that are in our whitelist
+    // This prevents SQL injection via malicious column names
+    for (const [key, value] of Object.entries(input)) {
+      // Skip undefined values (Partial type allows undefined)
+      if (value === undefined) {
+        continue
+      }
+
+      // Check if key is in our column map
+      const dbColumn = columnMap[key]
+      if (!dbColumn) {
+        // Ignore unknown keys (potential SQL injection attempt)
+        continue
+      }
+
+      // Double-check the mapped column is in the allowed list
+      if (!allowedColumns.includes(dbColumn as any)) {
+        // This should never happen, but defense in depth
+        continue
+      }
+
+      // Build safe update clause using whitelisted column name
+      updates.push(`${dbColumn} = ?`)
+
+      // Process value based on field type
+      if (key === 'code' && typeof value === 'string') {
+        values.push(value.toUpperCase().trim())
+      } else if (key === 'isActive' && typeof value === 'boolean') {
+        values.push(value ? 1 : 0)
+      } else {
+        values.push(value)
+      }
     }
 
     if (updates.length === 0) {
       return existing
     }
 
+    // Always update updated_at (safe, hardcoded)
     updates.push('updated_at = ?')
     values.push(Math.floor(Date.now() / 1000))
     values.push(id)
 
+    // Build query with whitelisted column names only
     await this.db
       .prepare(`UPDATE coupons SET ${updates.join(', ')} WHERE id = ?`)
       .bind(...values)
