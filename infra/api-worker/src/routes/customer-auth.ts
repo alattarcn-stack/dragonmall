@@ -25,10 +25,10 @@ export function createCustomerAuthRouter(env: Env) {
 
       // Rate limiting - check by IP
       const ipAddress = c.req.header('CF-Connecting-IP') || 
-                       c.req.header('X-Forwarded-For')?.split(',')[0] || 
+                       c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() || 
                        'unknown'
       
-      const ipRateLimit = await checkRateLimit(env.KV_SESSIONS, `signup:ip:${ipAddress}`, 5, 600)
+      const ipRateLimit = await checkRateLimit(env.KV_SESSIONS, 'signup', ipAddress, 'ip', 5, 600)
       if (!ipRateLimit.allowed) {
         return c.json({ 
           error: 'Too many signup attempts. Please try again later.' 
@@ -129,17 +129,17 @@ export function createCustomerAuthRouter(env: Env) {
 
       // Rate limiting - check by IP and email
       const ipAddress = c.req.header('CF-Connecting-IP') || 
-                       c.req.header('X-Forwarded-For')?.split(',')[0] || 
+                       c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() || 
                        'unknown'
       
-      const ipRateLimit = await checkRateLimit(env.KV_SESSIONS, `login:ip:${ipAddress}`, 5, 600)
+      const ipRateLimit = await checkRateLimit(env.KV_SESSIONS, 'login', ipAddress, 'ip', 5, 600)
       if (!ipRateLimit.allowed) {
         return c.json({ 
           error: 'Too many login attempts. Please try again later.' 
         }, 429)
       }
 
-      const emailRateLimit = await checkRateLimit(env.KV_SESSIONS, `login:email:${email}`, 5, 600)
+      const emailRateLimit = await checkRateLimit(env.KV_SESSIONS, 'login', email, 'email', 5, 600)
       if (!emailRateLimit.allowed) {
         return c.json({ 
           error: 'Too many login attempts. Please try again later.' 
