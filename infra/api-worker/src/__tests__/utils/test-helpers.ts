@@ -1,7 +1,7 @@
 import type { Env } from '../../types'
-import { MockD1Database } from '@dragon/core/src/__tests__/utils/mock-d1'
 import { UserService } from '@dragon/core'
 import { hashPassword } from '../../utils/password'
+import { MockD1Database } from '../../../../../packages/core/src/__tests__/utils/mock-d1'
 
 /**
  * Create a test environment with mock D1 database
