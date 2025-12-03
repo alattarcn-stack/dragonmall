@@ -138,11 +138,14 @@ The worker will be available at: `https://dragon-station-2026-api.your-subdomain
    - **Framework preset**: Next.js
    - **Build command**: `cd apps/store && npm ci && npm run build`
    - **Build output directory**: `apps/store/.next`
-   - **Root directory**: `/`
+   - **Root directory**: `/` (or leave empty)
+   - **Deploy command**: (leave empty - Pages auto-deploys the build output)
 5. Add environment variables:
    - `NEXT_PUBLIC_API_URL`: Your Worker URL (e.g., `https://dragon-station-2026-api.your-subdomain.workers.dev`)
    - `NEXT_PUBLIC_SENTRY_DSN`: (optional) Sentry DSN for error tracking
 6. Click **Save and Deploy**
+
+**⚠️ Important**: Do NOT set a "Deploy command" - Cloudflare Pages automatically deploys the build output. If you see `npx wrangler deploy` in the deploy command field, remove it. That command is only for Workers, not Pages.
 
 #### Option B: Via Wrangler (Pages)
 
