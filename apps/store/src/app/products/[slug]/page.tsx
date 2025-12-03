@@ -47,19 +47,7 @@ export default async function ProductPage({ params }: ProductPageProps) {
   return (
     <div className="max-w-[650px] mx-auto bg-white min-h-screen pb-24">
       {/* Product Header with Gradient Background */}
-      <div className="pro_content relative mb-16" style={{
-        backgroundImage: 'linear-gradient(130deg, #00F5B2, #1FC3FF, #00dbde)',
-        height: '120px',
-        backgroundSize: '300%',
-        animation: 'bganimation 10s infinite'
-      }}>
-        <style jsx>{`
-          @keyframes bganimation {
-            0% { background-position: 0% 50%; }
-            50% { background-position: 100% 50%; }
-            100% { background-position: 0% 50%; }
-          }
-        `}</style>
+      <div className="pro_content relative mb-16">
         <div className="list_item_box absolute top-14 left-0 right-0 px-4">
           <div className="bor_detail flex gap-4">
             <div className="thumb w-24 h-24 flex-shrink-0 rounded-lg overflow-hidden bg-white shadow-lg">
