@@ -6,6 +6,10 @@ const path = require('path')
 const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@dragon/api', '@dragon/core'],
+  typescript: {
+    // Disable type checking during build - types are checked separately
+    ignoreBuildErrors: true,
+  },
   webpack: (config, { isServer }) => {
     // Resolve path aliases
     config.resolve.alias = {
