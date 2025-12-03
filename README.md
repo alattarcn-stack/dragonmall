@@ -4,7 +4,7 @@
 
 A modern, production-ready e-commerce platform for selling digital products, license keys, and services. Built with Next.js, TypeScript, and Cloudflare's edge infrastructure.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/yourusername/dragon-2026)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/akmobb/dragonmall)
 
 ## Core Features
 
@@ -266,7 +266,7 @@ npm run type-check
 
 ### 🚀 One-Click Deploy to Cloudflare
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/yourusername/dragon-2026)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/akmobb/dragonmall)
 
 **After clicking the deploy button:**
 
