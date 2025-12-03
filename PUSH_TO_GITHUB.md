@@ -2,7 +2,7 @@
 
 ## Step 1: Create Repository on GitHub
 
-The repository `https://github.com/akmobb/dragonmall.git` doesn't exist yet. Create it first:
+The repository `https://github.com/alattarcn-stack/dragonmall.git` doesn't exist yet. Create it first:
 
 ### Option A: Via GitHub Website (Recommended)
 
@@ -24,14 +24,14 @@ gh repo create dragonmall --public --description "Dragon Station 2026 - Digital 
 After creating the repository, run:
 
 ```bash
-git remote add origin https://github.com/akmobb/dragonmall.git
+git remote add origin https://github.com/alattarcn-stack/dragonmall.git
 git branch -M main
 git push -u origin main
 ```
 
 ## Step 3: Verify
 
-1. Go to https://github.com/akmobb/dragonmall
+1. Go to https://github.com/alattarcn-stack/dragonmall
 2. Verify all files are uploaded
 3. Check that `.dev.vars` is NOT in the repository (it should be ignored)
 
@@ -52,8 +52,8 @@ Before pushing, verify:
    - Add `NEXT_PUBLIC_API_URL` (after first deployment)
 
 2. **Update Deploy Button URL** in README.md:
-   - Replace `yourusername` with `akmobb`
-   - The button URL should be: `https://deploy.workers.cloudflare.com/?url=https://github.com/akmobb/dragonmall`
+   - Replace `yourusername` with `alattarcn-stack`
+   - The button URL should be: `https://deploy.workers.cloudflare.com/?url=https://github.com/alattarcn-stack/dragonmall`
 
 3. **Test GitHub Actions**:
    - Push a commit to trigger deployment
