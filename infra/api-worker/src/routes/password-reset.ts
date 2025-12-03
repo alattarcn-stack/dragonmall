@@ -146,10 +146,21 @@ export function createPasswordResetRouter(env: Env) {
         passwordHash,
       })
 
+      const now = Math.floor(Date.now() / 1000)
+
       // Mark token as used
       await env.D1_DATABASE
         .prepare('UPDATE password_resets SET used_at = ? WHERE id = ?')
-        .bind(Math.floor(Date.now() / 1000), tokenResult.id)
+        .bind(now, tokenResult.id)
+        .run()
+
+      // Invalidate all other reset tokens for this user (security best practice)
+      // This ensures only one password reset can be used at a time
+      await env.D1_DATABASE
+        .prepare(
+          'UPDATE password_resets SET used_at = ? WHERE user_id = ? AND id != ? AND used_at IS NULL'
+        )
+        .bind(now, user.id, tokenResult.id)
         .run()
 
       logInfo('Password reset completed', { userId: user.id }, env)
