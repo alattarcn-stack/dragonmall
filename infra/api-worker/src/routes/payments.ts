@@ -137,7 +137,8 @@ export function createPaymentsRouter(env: Env) {
 
       const { orderId, currency } = validationResult.data
 
-      // Get order
+      // Fetch order fresh from database to get authoritative amount
+      // Never trust client-provided amounts - always use database values
       const order = await orderService.getById(orderId)
       if (!order) {
         return c.json({ error: 'Order not found' }, 404)
@@ -147,7 +148,8 @@ export function createPaymentsRouter(env: Env) {
         return c.json({ error: 'Order is not pending' }, 400)
       }
 
-      // Use total_amount if available, otherwise fall back to amount
+      // Get authoritative order amount from database (total_amount includes discounts)
+      // This ensures we always use the correct amount, regardless of what the client sends
       const orderAmount = order.totalAmount ?? order.amount
 
       // Get client IP
@@ -155,7 +157,7 @@ export function createPaymentsRouter(env: Env) {
                        c.req.header('X-Forwarded-For')?.split(',')[0] ||
                        'unknown'
 
-      // Create payment record
+      // Create payment record (PaymentService also fetches order amount from DB)
       const payment = await paymentService.createPaymentIntent({
         orderId,
         method: 'stripe',
@@ -163,9 +165,19 @@ export function createPaymentsRouter(env: Env) {
         ipAddress,
       })
 
-      // Create Stripe PaymentIntent
+      // Verify payment record amount matches order amount (defense in depth)
+      if (payment.amount !== orderAmount) {
+        logError('Payment amount mismatch during creation', {
+          orderId,
+          orderAmount,
+          paymentAmount: payment.amount,
+        })
+        return c.json({ error: 'Payment amount validation failed' }, 500)
+      }
+
+      // Create Stripe PaymentIntent with authoritative amount from database
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: orderAmount,
+        amount: orderAmount, // Always use database amount, never client input
         currency: currency.toLowerCase(),
         metadata: {
           orderId: orderId.toString(),
@@ -232,6 +244,27 @@ export function createPaymentsRouter(env: Env) {
         const transactionNumber = paymentIntent.metadata.transactionNumber
 
         if (orderId && transactionNumber) {
+          // Validate payment amount matches order amount
+          const order = await orderService.getById(orderId)
+          if (!order) {
+            logError('Order not found for payment intent', { orderId, transactionNumber })
+            return c.json({ error: 'Order not found' }, 404)
+          }
+
+          // Get authoritative order amount (total_amount includes discounts)
+          const expectedAmount = order.totalAmount ?? order.amount
+          
+          // Verify payment intent amount matches order amount
+          if (paymentIntent.amount !== expectedAmount) {
+            logError('Payment amount mismatch', {
+              orderId,
+              transactionNumber,
+              expectedAmount,
+              paymentIntentAmount: paymentIntent.amount,
+            })
+            return c.json({ error: 'Payment amount does not match order amount' }, 400)
+          }
+
           // Confirm payment
           await paymentService.confirmPayment(transactionNumber, paymentIntent.id)
 
@@ -277,7 +310,8 @@ export function createPaymentsRouter(env: Env) {
 
       const { orderId, currency } = validationResult.data
 
-      // Get order
+      // Fetch order fresh from database to get authoritative amount
+      // Never trust client-provided amounts - always use database values
       const order = await orderService.getById(orderId)
       if (!order) {
         return c.json({ error: 'Order not found' }, 404)
@@ -287,7 +321,8 @@ export function createPaymentsRouter(env: Env) {
         return c.json({ error: 'Order is not pending' }, 400)
       }
 
-      // Use total_amount if available, otherwise fall back to amount
+      // Get authoritative order amount from database (total_amount includes discounts)
+      // This ensures we always use the correct amount, regardless of what the client sends
       const orderAmount = order.totalAmount ?? order.amount
 
       // Get client IP
@@ -295,7 +330,7 @@ export function createPaymentsRouter(env: Env) {
                        c.req.header('X-Forwarded-For')?.split(',')[0] ||
                        'unknown'
 
-      // Create payment record
+      // Create payment record (PaymentService also fetches order amount from DB)
       const payment = await paymentService.createPaymentIntent({
         orderId,
         method: 'paypal',
@@ -303,7 +338,17 @@ export function createPaymentsRouter(env: Env) {
         ipAddress,
       })
 
-      // Create PayPal order
+      // Verify payment record amount matches order amount (defense in depth)
+      if (payment.amount !== orderAmount) {
+        logError('Payment amount mismatch during creation', {
+          orderId,
+          orderAmount,
+          paymentAmount: payment.amount,
+        })
+        return c.json({ error: 'Payment amount validation failed' }, 500)
+      }
+
+      // Create PayPal order with authoritative amount from database
       const request = new paypal.orders.OrdersCreateRequest()
       request.prefer('return=representation')
       request.requestBody({
@@ -312,7 +357,7 @@ export function createPaymentsRouter(env: Env) {
           reference_id: orderId.toString(),
           amount: {
             currency_code: currency.toUpperCase(),
-            value: (orderAmount / 100).toFixed(2),
+            value: (orderAmount / 100).toFixed(2), // Always use database amount, never client input
           },
           description: `Order #${orderId}`,
         }],
@@ -413,6 +458,34 @@ export function createPaymentsRouter(env: Env) {
           const payment = await paymentService.getByExternalTransactionId(paypalOrderId)
           
           if (payment && payment.orderId) {
+            // Validate payment amount matches order amount
+            const order = await orderService.getById(payment.orderId)
+            if (!order) {
+              logError('Order not found for PayPal payment', {
+                orderId: payment.orderId,
+                paypalOrderId,
+              })
+              return c.json({ error: 'Order not found' }, 404)
+            }
+
+            // Get authoritative order amount (total_amount includes discounts)
+            const expectedAmount = order.totalAmount ?? order.amount
+            
+            // PayPal amounts are in dollars, convert to cents for comparison
+            const captureAmountCents = Math.round(parseFloat(resource.amount.value || '0') * 100)
+            
+            // Verify capture amount matches order amount
+            if (captureAmountCents !== expectedAmount) {
+              logError('PayPal payment amount mismatch', {
+                orderId: payment.orderId,
+                transactionNumber: payment.transactionNumber,
+                expectedAmount,
+                captureAmountCents,
+                captureAmount: resource.amount.value,
+              })
+              return c.json({ error: 'Payment amount does not match order amount' }, 400)
+            }
+
             // Confirm payment
             await paymentService.confirmPayment(
               payment.transactionNumber,

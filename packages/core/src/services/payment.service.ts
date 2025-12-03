@@ -104,15 +104,19 @@ export class PaymentService {
   }
 
   async createPaymentIntent(request: CreatePaymentRequest): Promise<Payment> {
-    // Get order to calculate amount
+    // Get order to get authoritative amount from database
+    // Always use total_amount if available (includes discounts), otherwise fall back to amount
     const orderResult = await this.db
-      .prepare('SELECT amount, user_id FROM orders WHERE id = ?')
+      .prepare('SELECT amount, total_amount, user_id FROM orders WHERE id = ?')
       .bind(request.orderId)
-      .first<{ amount: number; user_id: number | null }>()
+      .first<{ amount: number; total_amount: number | null; user_id: number | null }>()
 
     if (!orderResult) {
       throw new Error('Order not found')
     }
+
+    // Use total_amount if available (includes discounts), otherwise use amount
+    const orderAmount = orderResult.total_amount ?? orderResult.amount
 
     const createdAt = Math.floor(Date.now() / 1000)
     const transactionNumber = `TXN-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
@@ -126,7 +130,7 @@ export class PaymentService {
         transactionNumber,
         orderResult.user_id || null,
         request.orderId,
-        orderResult.amount,
+        orderAmount, // Use authoritative amount from database
         currency,
         request.method,
         'unpaid',
@@ -145,7 +149,7 @@ export class PaymentService {
       transactionNumber,
       userId: orderResult.user_id || null,
       orderId: request.orderId,
-      amount: orderResult.amount,
+      amount: orderAmount, // Return authoritative amount
       currency,
       method: request.method,
       status: 'unpaid',
