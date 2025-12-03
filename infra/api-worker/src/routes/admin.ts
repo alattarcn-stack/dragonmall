@@ -6,6 +6,8 @@ import { ProductCreateSchema, ProductUpdateSchema, InventoryAddSchema, SupportTi
 import { getFileUploadConfig, validateFileUpload } from '../utils/file-upload'
 import { sendSupportReplyEmail } from '../utils/email'
 import { logError, logInfo } from '../utils/logging'
+import { parsePaginationParams, getOffset, createPaginatedResponse, makeError, ErrorCodes } from '../utils/pagination'
+import { makeError as makeErrorResponse, ErrorCodes as ErrorCodesResponse } from '../utils/errors'
 
 export function createAdminRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -186,10 +188,30 @@ export function createAdminRouter(env: Env) {
   // Products CRUD
   router.get('/products', async (c) => {
     try {
-      const products = await productService.listProducts()
-      return c.json({ data: products })
+      // Parse pagination parameters
+      const { page, pageSize } = parsePaginationParams(
+        c.req.query('page'),
+        c.req.query('pageSize'),
+        100 // Max 100 products per page
+      )
+      const offset = getOffset(page, pageSize)
+
+      // Get total count
+      const countResult = await env.D1_DATABASE
+        .prepare('SELECT COUNT(*) as total FROM products')
+        .first<{ total: number }>()
+      const total = countResult?.total || 0
+
+      // Get paginated products
+      const products = await productService.listProducts({
+        limit: pageSize,
+        offset,
+      })
+
+      return c.json(createPaginatedResponse(products, page, pageSize, total))
     } catch (error: any) {
-      return c.json({ error: 'Failed to fetch products' }, 500)
+      console.error('Error fetching products:', error)
+      return c.json(makeErrorResponse(ErrorCodesResponse.INTERNAL_ERROR, 'Failed to fetch products'), 500)
     }
   })
 
@@ -336,15 +358,31 @@ export function createAdminRouter(env: Env) {
   // Orders
   router.get('/orders', async (c) => {
     try {
-      // Get all orders
+      // Parse pagination parameters
+      const { page, pageSize } = parsePaginationParams(
+        c.req.query('page'),
+        c.req.query('pageSize'),
+        100 // Max 100 orders per page
+      )
+      const offset = getOffset(page, pageSize)
+
+      // Get total count
+      const countResult = await env.D1_DATABASE
+        .prepare('SELECT COUNT(*) as total FROM orders')
+        .first<{ total: number }>()
+      const total = countResult?.total || 0
+
+      // Get paginated orders
       const ordersResult = await env.D1_DATABASE
-        .prepare('SELECT * FROM orders ORDER BY created_at DESC')
+        .prepare('SELECT * FROM orders ORDER BY created_at DESC LIMIT ? OFFSET ?')
+        .bind(pageSize, offset)
         .all()
       const orders = (ordersResult.results || []) as any[]
-      return c.json({ data: orders })
+
+      return c.json(createPaginatedResponse(orders, page, pageSize, total))
     } catch (error: any) {
       console.error('Error fetching orders:', error)
-      return c.json({ error: 'Failed to fetch orders' }, 500)
+      return c.json(makeErrorResponse(ErrorCodesResponse.INTERNAL_ERROR, 'Failed to fetch orders'), 500)
     }
   })
 
@@ -540,7 +578,33 @@ export function createAdminRouter(env: Env) {
   // Inventory
   router.get('/inventory', async (c) => {
     try {
+      // Parse pagination parameters
+      const { page, pageSize } = parsePaginationParams(
+        c.req.query('page'),
+        c.req.query('pageSize'),
+        100 // Max 100 inventory items per page
+      )
+      const offset = getOffset(page, pageSize)
+
       const productId = c.req.query('productId')
+      
+      // Build count query
+      let countQuery = 'SELECT COUNT(*) as total FROM inventory_items'
+      const countBinds: unknown[] = []
+      
+      if (productId) {
+        countQuery += ' WHERE product_id = ?'
+        countBinds.push(parseInt(productId, 10))
+      }
+      
+      // Get total count
+      const countResult = await env.D1_DATABASE
+        .prepare(countQuery)
+        .bind(...countBinds)
+        .first<{ total: number }>()
+      const total = countResult?.total || 0
+
+      // Build data query
       let query = 'SELECT * FROM inventory_items'
       const binds: unknown[] = []
       
@@ -549,17 +613,18 @@ export function createAdminRouter(env: Env) {
         binds.push(parseInt(productId, 10))
       }
       
-      query += ' ORDER BY created_at DESC'
+      query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?'
+      binds.push(pageSize, offset)
       
       const result = await env.D1_DATABASE
         .prepare(query)
         .bind(...binds)
         .all()
       
-      return c.json({ data: result.results || [] })
+      return c.json(createPaginatedResponse(result.results || [], page, pageSize, total))
     } catch (error: any) {
       console.error('Error fetching inventory:', error)
-      return c.json({ error: 'Failed to fetch inventory' }, 500)
+      return c.json(makeErrorResponse(ErrorCodesResponse.INTERNAL_ERROR, 'Failed to fetch inventory'), 500)
     }
   })
 
@@ -585,10 +650,30 @@ export function createAdminRouter(env: Env) {
   // Support tickets
   router.get('/support', async (c) => {
     try {
-      const tickets = await supportService.getAll()
-      return c.json({ data: tickets })
+      // Parse pagination parameters
+      const { page, pageSize } = parsePaginationParams(
+        c.req.query('page'),
+        c.req.query('pageSize'),
+        100 // Max 100 tickets per page
+      )
+      const offset = getOffset(page, pageSize)
+
+      // Get total count
+      const countResult = await env.D1_DATABASE
+        .prepare('SELECT COUNT(*) as total FROM support_tickets')
+        .first<{ total: number }>()
+      const total = countResult?.total || 0
+
+      // Get paginated tickets
+      const tickets = await supportService.getAll({
+        limit: pageSize,
+        offset,
+      })
+
+      return c.json(createPaginatedResponse(tickets, page, pageSize, total))
     } catch (error: any) {
-      return c.json({ error: 'Failed to fetch tickets' }, 500)
+      console.error('Error fetching tickets:', error)
+      return c.json(makeErrorResponse(ErrorCodesResponse.INTERNAL_ERROR, 'Failed to fetch tickets'), 500)
     }
   })
 
@@ -657,12 +742,36 @@ export function createAdminRouter(env: Env) {
   // Categories CRUD
   router.get('/categories', async (c) => {
     try {
+      // Parse pagination parameters
+      const { page, pageSize } = parsePaginationParams(
+        c.req.query('page'),
+        c.req.query('pageSize'),
+        100 // Max 100 categories per page
+      )
+      const offset = getOffset(page, pageSize)
+
       const includeInactive = c.req.query('includeInactive') === 'true'
-      const categories = await categoryService.listCategories({ includeInactive })
-      return c.json({ data: categories })
+      
+      // Get total count
+      let countQuery = 'SELECT COUNT(*) as total FROM categories'
+      if (!includeInactive) {
+        countQuery += ' WHERE is_active = 1'
+      }
+      const countResult = await env.D1_DATABASE
+        .prepare(countQuery)
+        .first<{ total: number }>()
+      const total = countResult?.total || 0
+
+      // Get all categories (categories list is typically small, but we'll still paginate)
+      const allCategories = await categoryService.listCategories({ includeInactive })
+      
+      // Apply pagination manually since listCategories doesn't support it
+      const categories = allCategories.slice(offset, offset + pageSize)
+
+      return c.json(createPaginatedResponse(categories, page, pageSize, total))
     } catch (error: any) {
       console.error('Error fetching categories:', error)
-      return c.json({ error: 'Failed to fetch categories' }, 500)
+      return c.json(makeErrorResponse(ErrorCodesResponse.INTERNAL_ERROR, 'Failed to fetch categories'), 500)
     }
   })
 
