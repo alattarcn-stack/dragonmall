@@ -6,8 +6,8 @@ import { ProductCreateSchema, ProductUpdateSchema, InventoryAddSchema, SupportTi
 import { getFileUploadConfig, validateFileUpload } from '../utils/file-upload'
 import { sendSupportReplyEmail } from '../utils/email'
 import { logError, logInfo } from '../utils/logging'
-import { parsePaginationParams, getOffset, createPaginatedResponse, makeError, ErrorCodes } from '../utils/pagination'
-import { makeError as makeErrorResponse, ErrorCodes as ErrorCodesResponse } from '../utils/errors'
+import { parsePaginationParams, getOffset, createPaginatedResponse } from '../utils/pagination'
+import { makeError, ErrorCodes } from '../utils/errors'
 
 export function createAdminRouter(env: Env) {
   const router = new Hono<{ Bindings: Env }>()
@@ -211,7 +211,7 @@ export function createAdminRouter(env: Env) {
       return c.json(createPaginatedResponse(products, page, pageSize, total))
     } catch (error: any) {
       console.error('Error fetching products:', error)
-      return c.json(makeErrorResponse(ErrorCodesResponse.INTERNAL_ERROR, 'Failed to fetch products'), 500)
+      return c.json(makeError(ErrorCodes.INTERNAL_ERROR, 'Failed to fetch products'), 500)
     }
   })
 
